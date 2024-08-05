@@ -30,7 +30,7 @@ class MySQLHaFullBackupDetailSerializer(MySQLBaseOperateDetailSerializer):
                 help_text=_("备份位置"), choices=InstanceInnerRole.get_choices(), default=InstanceInnerRole.SLAVE.value
             )
 
-        # 废弃online，暂时不需要传递
+        # 废弃 online，暂时不需要传递
         # online = serializers.BooleanField(help_text=_("是否在线备份"), required=False)
         backup_type = serializers.ChoiceField(help_text=_("备份类型"), choices=MySQLBackupTypeEnum.get_choices())
         file_tag = serializers.ChoiceField(help_text=_("备份文件tag"), choices=MySQLBackupFileTagEnum.get_choices())
