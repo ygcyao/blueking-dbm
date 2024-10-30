@@ -93,6 +93,53 @@ class ExcelHandler:
         return matrix_data
 
     @classmethod
+    def privs_serialize(
+        cls,
+        data_dict__list: List[Dict],
+        headers: List = None,
+    ) -> Workbook:
+        """
+        权限查询页定制excel
+        - 将数据字典序列化为excel对象
+        :param data_dict__list: 数据字典
+        :param headers: excel数据头 [{"id": "header_id", "name": "header_name"}]
+        """
+        wb: Workbook = Workbook()
+        sheet: Worksheet = wb.active
+        first_data_row: int = 2
+        row_num: int = 2
+        for col, header in enumerate(headers):
+            header = header if isinstance(header, str) else header["name"]
+            cell = sheet.cell(1, col + 1, str(header))
+
+        for row, data_dict in enumerate(data_dict__list):
+            for priv in data_dict["privs"]:
+                sheet.cell(row=row_num, column=1, value=data_dict["ip"])
+                sheet.cell(row=row_num, column=2, value=data_dict["immute_domain"])
+                sheet.cell(row=row_num, column=3, value=data_dict["user"])
+                sheet.cell(row=row_num, column=4, value=data_dict["match_ip"])
+                sheet.cell(row=row_num, column=5, value=priv["match_db"])
+                sheet.cell(row=row_num, column=6, value=priv["priv"])
+                row_num += 1
+
+            # 自动调整列宽
+            for col in sheet.columns:
+                max_length = 0
+                column = col[0].column_letter  # 获取列字母
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(cell.value)
+                    except (TypeError, AttributeError):
+                        pass
+                adjusted_width = max_length + 2
+                sheet.column_dimensions[column].width = adjusted_width
+
+        # 自适应设置行高和列宽
+        cls._adapt_sheet_weight_height(sheet=sheet, first_header_row=first_data_row - 1)
+        return wb
+
+    @classmethod
     def serialize(
         cls,
         data_dict__list: List[Dict],
