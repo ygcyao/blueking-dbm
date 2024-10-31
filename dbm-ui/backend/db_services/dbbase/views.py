@@ -21,7 +21,7 @@ from backend.bk_web import viewsets
 from backend.bk_web.pagination import AuditedLimitOffsetPagination
 from backend.bk_web.swagger import ResponseSwaggerAutoSchema, common_swagger_auto_schema
 from backend.configuration.constants import DBType
-from backend.db_meta.enums import ClusterType
+from backend.db_meta.enums import ClusterType, InstanceRole
 from backend.db_meta.models import Cluster, DBModule, ProxyInstance, StorageInstance
 from backend.db_services.dbbase.cluster.handlers import ClusterServiceHandler
 from backend.db_services.dbbase.cluster.serializers import CheckClusterDbsResponseSerializer, CheckClusterDbsSerializer
@@ -30,6 +30,7 @@ from backend.db_services.dbbase.instances.yasg_slz import CheckInstancesResSLZ, 
 from backend.db_services.dbbase.resources import register
 from backend.db_services.dbbase.resources.query import ListRetrieveResource, ResourceList
 from backend.db_services.dbbase.serializers import (
+    ClusterDbTypeSerializer,
     ClusterFilterSerializer,
     CommonQueryClusterResponseSerializer,
     CommonQueryClusterSerializer,
@@ -264,3 +265,40 @@ class DBBaseViewSet(viewsets.SystemViewSet):
             from backend.db_services.redis.toolbox.handlers import ToolboxHandler
 
             return Response(ToolboxHandler.webconsole_rpc(**data))
+
+    @common_swagger_auto_schema(
+        operation_summary=_("根据db类型查询ip列表"),
+        auto_schema=ResponseSwaggerAutoSchema,
+        query_serializer=ClusterDbTypeSerializer(),
+        responses={status.HTTP_200_OK: ClusterDbTypeSerializer()},
+        tags=[SWAGGER_TAG],
+    )
+    @action(
+        methods=["GET"],
+        detail=False,
+        serializer_class=ClusterDbTypeSerializer,
+    )
+    def get_ips_list(self, request, *args, **kwargs):
+        # 接收参数
+        db_type = self.validated_data["db_type"]
+        bk_biz_id = self.validated_data["bk_biz_id"]
+
+        # db类型为InfluxDB, 则直接返回
+        if db_type == DBType.InfluxDB:
+            return Response(
+                StorageInstance.objects.filter(instance_role=InstanceRole.INFLUXDB).values_list(
+                    "machine__ip", flat=True
+                )
+            )
+
+        # 获取所有符合条件的集群对象
+        clusters = Cluster.objects.prefetch_related(
+            "storageinstance_set", "proxyinstance_set", "storageinstance_set__machine", "proxyinstance_set__machine"
+        ).filter(bk_biz_id=bk_biz_id, cluster_type__in=ClusterType.db_type_to_cluster_types(db_type))
+
+        ips = []
+        # 遍历集群对象，获取符合条件的ip
+        for cluster in clusters:
+            ips.extend(cluster.proxyinstance_set.all().values_list("machine__ip", flat=True))
+            ips.extend(cluster.storageinstance_set.all().values_list("machine__ip", flat=True))
+        return Response(ips)
