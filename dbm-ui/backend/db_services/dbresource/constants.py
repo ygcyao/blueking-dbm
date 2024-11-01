@@ -38,6 +38,7 @@ CLUSTER_TYPE__SPEC_FILTER = {
     ClusterType.TendisTwemproxyRedisInstance: TendisCacheSpecFilter,
     ClusterType.TwemproxyTendisSSDInstance: TendisSSDSpecFilter,
     ClusterType.MongoShardedCluster: MongoDBShardSpecFilter,
+    ClusterType.MongoReplicaSet: MongoDBShardSpecFilter,
 }
 
 

@@ -349,11 +349,14 @@ class TendisCacheSpecFilter(RedisSpecFilter):
 
 
 class MongoDBShardSpecFilter(object):
-    """mongodb分片集群的部署方案"""
+    """mongodb集群的部署方案"""
 
     def __init__(self, capacity, spec_cluster_type, spec_machine_type, **kwargs):
-        if spec_cluster_type != ClusterType.MongoShardedCluster or spec_machine_type != MachineType.MONGODB:
-            raise SpecOperateException(_("请保证输入的集群类型是MongoShardedCluster，且机器规格为mongodb"))
+        if (
+            spec_cluster_type not in [ClusterType.MongoShardedCluster, ClusterType.MongoReplicaSet]
+            or spec_machine_type != MachineType.MONGODB
+        ):
+            raise SpecOperateException(_("请保证输入的集群类型是{}，且机器规格为mongodb").format(spec_cluster_type))
 
         self.specs: List[Dict[str, Any]] = []
         mongodb_specs = Spec.objects.filter(
