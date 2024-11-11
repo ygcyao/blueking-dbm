@@ -348,7 +348,7 @@ class ClusterOperateRecord(AuditedModel):
     @classmethod
     def get_cluster_records_map(cls, cluster_ids: List[int]):
         """获取集群与操作记录之间的映射关系"""
-        records = cls.objects.prefetch_related("ticket").filter(
+        records = cls.objects.select_related("ticket", "flow").filter(
             cluster_id__in=cluster_ids, ticket__status=TicketFlowStatus.RUNNING
         )
         cluster_operate_records_map: Dict[int, List] = defaultdict(list)

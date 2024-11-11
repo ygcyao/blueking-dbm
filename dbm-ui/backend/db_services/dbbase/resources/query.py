@@ -506,8 +506,10 @@ class ListRetrieveResource(BaseListRetrieveResource):
 
         # 获取DB模块的映射信息
         db_module_names_map = {
-            module.db_module_id: module.db_module_name
-            for module in DBModule.objects.filter(bk_biz_id=bk_biz_id, cluster_type__in=cls.cluster_types)
+            module["db_module_id"]: module["db_module_name"]
+            for module in DBModule.objects.filter(bk_biz_id=bk_biz_id, cluster_type__in=cls.cluster_types).values(
+                "db_module_id", "db_module_name"
+            )
         }
 
         # 获取集群操作记录的映射关系
@@ -519,6 +521,9 @@ class ListRetrieveResource(BaseListRetrieveResource):
 
         # 将集群的查询结果序列化为集群字典信息
         clusters: List[Dict[str, Any]] = []
+        # 获取集群统计信息，只需要获取一次
+        cluster_stats_map = Cluster.get_cluster_stats(bk_biz_id, cls.cluster_types)
+
         for cluster in cluster_list:
             cluster_info = cls._to_cluster_representation(
                 cluster=cluster,
@@ -531,7 +536,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
                 cluster_operate_records_map=cluster_operate_records_map,
                 cloud_info=cloud_info,
                 biz_info=biz_info,
-                cluster_stats_map=Cluster.get_cluster_stats(bk_biz_id, cls.cluster_types),
+                cluster_stats_map=cluster_stats_map,
                 **kwargs,
             )
             clusters.append(cluster_info)
