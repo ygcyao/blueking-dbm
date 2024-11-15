@@ -217,7 +217,7 @@ class Cluster(AuditedModel):
             if self.storageinstance_set.filter(status=InstanceStatus.UNAVAILABLE.value).exists():
                 flag_obj |= ClusterRedisStatusFlags.RedisUnavailable
         # sqlserver ha
-        if self.cluster_type == ClusterType.SqlserverHA.value:
+        elif self.cluster_type == ClusterType.SqlserverHA.value:
             flag_obj = ClusterSqlserverStatusFlags(0)
             if self.storageinstance_set.filter(
                 status=InstanceStatus.UNAVAILABLE.value, instance_inner_role=InstanceInnerRole.MASTER.value
