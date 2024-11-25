@@ -17,6 +17,8 @@ from django.utils.translation import ugettext_lazy as _
 from backend import env
 from backend.bk_web.constants import LEN_MIDDLE, LEN_SHORT
 from backend.bk_web.models import AuditedModel
+from backend.configuration.constants import BizSettingsEnum
+from backend.configuration.models import BizSettings
 from backend.ticket.constants import FlowMsgStatus, FlowMsgType, TicketFlowStatus, TodoStatus, TodoType
 from backend.ticket.tasks.ticket_tasks import send_msg_for_flow
 
@@ -28,6 +30,22 @@ class TodoManager(models.Manager):
         return self.filter(status__in=[TodoStatus.TODO, TodoStatus.RUNNING]).exists()
 
     def create(self, **kwargs):
+        assistance_flag = (
+            BizSettings.get_setting_value(kwargs["ticket"].bk_biz_id, BizSettingsEnum.BIZ_ASSISTANCE_SWITCH) or False
+        )
+        if assistance_flag:
+            # 获取业务协助人列表
+            biz_facilitators: list = (
+                BizSettings.get_setting_value(
+                    bk_biz_id=kwargs["ticket"].bk_biz_id, key=BizSettingsEnum.BIZ_ASSISTANCE_VARS
+                )
+                or []
+            )
+            operators = kwargs.get("operators", [])
+            # 过滤掉已经在 operators 中的协助人
+            unique_biz_facilitators = [facilitator for facilitator in biz_facilitators if facilitator not in operators]
+            # 按顺序合并
+            kwargs["operators"] = operators + unique_biz_facilitators
         todo = super().create(**kwargs)
         send_msg_for_flow.apply_async(
             kwargs={

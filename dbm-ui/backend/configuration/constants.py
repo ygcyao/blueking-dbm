@@ -126,6 +126,8 @@ class BizSettingsEnum(str, StructuredEnum):
     # TODO: 后续待删除
     SKIP_GRAMMAR_CHECK = EnumField("SKIP_GRAMMAR_CHECK", _("是否跳过语义检查"))
     SQL_IMPORT_FORCE_ITSM = EnumField("SQL_IMPORT_FORCE_ITSM", _("是否变更SQL强制需要审批流"))
+    BIZ_ASSISTANCE_VARS = EnumField("BIZ_ASSISTANCE_VARS", _("业务协助人员变量"))
+    BIZ_ASSISTANCE_SWITCH = EnumField("BIZ_ASSISTANCE_SWITCH", _("业务协助开关"))
 
 
 DEFAULT_DB_ADMINISTRATORS = ["admin"]
