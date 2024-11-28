@@ -29,6 +29,8 @@ def biz_clusters(bk_biz_id: int, immute_domains: Optional[List[str]]):
     padding_clusters = SystemSettings.get_setting_value(SystemSettingsEnum.PADDING_PROXY_CLUSTER_LIST.value) or []
 
     for cluster in qs:
+        storage_instances = list(cluster.storageinstance_set.all())
+        proxy_instances = list(cluster.proxyinstance_set.all())
         res.append(
             {
                 "id": cluster.id,
@@ -47,7 +49,7 @@ def biz_clusters(bk_biz_id: int, immute_domains: Optional[List[str]]):
                         "status": ele.status,
                         "bk_instance_id": ele.bk_instance_id,
                     }
-                    for ele in cluster.proxyinstance_set.all()
+                    for ele in proxy_instances
                 ],
                 "master_storage_instances": [
                     {
@@ -59,7 +61,8 @@ def biz_clusters(bk_biz_id: int, immute_domains: Optional[List[str]]):
                         "status": ele.status,
                         "bk_instance_id": ele.bk_instance_id,
                     }
-                    for ele in cluster.storageinstance_set.filter(instance_inner_role=InstanceInnerRole.MASTER.value)
+                    for ele in storage_instances
+                    if ele.instance_inner_role == InstanceInnerRole.MASTER.value
                 ],
                 "slave_storage_instances": [
                     {
@@ -71,7 +74,8 @@ def biz_clusters(bk_biz_id: int, immute_domains: Optional[List[str]]):
                         "status": ele.status,
                         "bk_instance_id": ele.bk_instance_id,
                     }
-                    for ele in cluster.storageinstance_set.filter(instance_inner_role=InstanceInnerRole.SLAVE.value)
+                    for ele in storage_instances
+                    if ele.instance_inner_role == InstanceInnerRole.SLAVE.value
                 ],
                 "storages": [
                     {
@@ -83,7 +87,7 @@ def biz_clusters(bk_biz_id: int, immute_domains: Optional[List[str]]):
                         "status": ele.status,
                         "bk_instance_id": ele.bk_instance_id,
                     }
-                    for ele in cluster.storageinstance_set.all()
+                    for ele in storage_instances
                 ],
             }
         )
