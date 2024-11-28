@@ -10,6 +10,7 @@ specific language governing permissions and limitations under the License.
 """
 from django.utils.translation import ugettext as _
 
+from backend.db_services.dbpermission.constants import AccountType
 from blue_krill.data_types.enum import EnumField, StructuredEnum
 
 # 平台业务ID
@@ -225,4 +226,42 @@ DB_ADMIN_USER_MAP = {
     DBType.TenDBCluster: MYSQL_ADMIN_USER,
     DBType.MySQL: MYSQL_ADMIN_USER,
     DBType.Sqlserver: SQLSERVER_ADMIN_USER,
+}
+
+# 权限规则账号创建不允许的账号名映射
+ACCOUNT_RULES_MAP = {
+    AccountType.SQLServer: ["mssql_exporter", "dbm_admin", "sa", "sqlserver"],
+    AccountType.MONGODB: ["dba", "apppdba", "monitor", "appmonitor"],
+    AccountType.MYSQL: [
+        "gcs_admin",
+        "gcs_dba",
+        "MONITOR",
+        "GM",
+        "ADMIN",
+        "repl",
+        "dba_bak_all_sel",
+        "yw",
+        "partition_yw",
+        "spider",
+        "mysql.session",
+        "mysql.sys",
+        "gcs_spider",
+        "sync",
+    ],
+    AccountType.TENDBCLUSTER: [
+        "gcs_admin",
+        "gcs_dba",
+        "MONITOR",
+        "GM",
+        "ADMIN",
+        "repl",
+        "dba_bak_all_sel",
+        "yw",
+        "partition_yw",
+        "spider",
+        "mysql.session",
+        "mysql.sys",
+        "gcs_spider",
+        "sync",
+    ],
 }

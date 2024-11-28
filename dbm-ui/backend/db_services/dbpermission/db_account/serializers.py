@@ -14,7 +14,7 @@ import re
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from backend.configuration.constants import DBPrivSecurityType
+from backend.configuration.constants import ACCOUNT_RULES_MAP, DBPrivSecurityType
 from backend.configuration.handlers.password import DBPasswordHandler
 from backend.db_meta.enums import ClusterType
 from backend.db_services.dbpermission import constants
@@ -39,6 +39,11 @@ class DBAccountBaseSerializer(serializers.Serializer):
 
         if len(user) > constants.MAX_ACCOUNT_LENGTH:
             raise serializers.ValidationError(_("账号名称不符合过长，请不要超过31位"))
+
+        # 不允许使用特殊账户名称
+        special_account_names = ACCOUNT_RULES_MAP.get(account_type, [])
+        if user in special_account_names:
+            raise serializers.ValidationError(_("不允许使用特殊账号名称[{}], 请重新更改账号名".format(user)))
 
     @classmethod
     def check_password_valid(cls, password, account_type):
