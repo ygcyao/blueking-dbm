@@ -35,6 +35,7 @@ from backend.db_services.redis.maxmemory_set.util import (
     get_dbmon_maxmemory_config_by_cluster_ids,
 )
 from backend.db_services.redis.redis_dts.models.tb_tendis_dts_switch_backup import TbTendisDtsSwitchBackup
+from backend.db_services.redis.redis_modules.models.redis_module_support import ClusterRedisModuleAssociate
 from backend.db_services.redis.redis_modules.util import get_cluster_redis_modules_detial, get_redis_moudles_detail
 from backend.db_services.redis.util import (
     is_predixy_proxy_type,
@@ -2498,3 +2499,23 @@ class RedisActPayload(object):
                 "slave_ports": params["slave_ports"],
             },
         }
+
+    def update_cluster_module(self, cluster_map: dict) -> bool:
+        """
+        更新nodes cluster_module记录
+        """
+        cluster_id = cluster_map["cluster_id"]
+        new_module_names = set(cluster_map.get("load_modules", []))
+
+        # 获取现有记录
+        obj, created = ClusterRedisModuleAssociate.objects.get_or_create(
+            cluster_id=cluster_id, defaults={"module_names": list(new_module_names)}
+        )
+        if not created:
+            # 如果记录已存在，合并现有的模块列表和新的模块列表
+            current_module_names = set(obj.module_names)
+            if current_module_names != new_module_names:
+                updated_module_names = list(current_module_names | new_module_names)
+                obj.module_names = updated_module_names
+                obj.save()
+        return True

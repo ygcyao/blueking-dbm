@@ -236,3 +236,8 @@ class GetClusterCapacityInfoSerializer(serializers.Serializer):
                 "err_msg": "",
             }
         }
+
+
+class GetClusterModuleInfoSerializer(serializers.Serializer):
+    cluster_id = serializers.IntegerField(help_text=_("集群ID"))
+    version = serializers.CharField(help_text=_("版本"))

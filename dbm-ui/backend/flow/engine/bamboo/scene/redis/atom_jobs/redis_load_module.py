@@ -137,4 +137,12 @@ def ClusterLoadModulesAtomJob(root_id, ticket_data, sub_kwargs: ActKwargs, param
     )
     logger.info("===>redis config")
 
+    act_kwargs.get_redis_payload_func = RedisActPayload.update_cluster_module.__name__
+    sub_pipeline.add_act(
+        act_name=_("更新cluster_module元数据"),
+        act_component_code=RedisConfigComponent.code,
+        kwargs=asdict(act_kwargs),
+    )
+    logger.info("===>redis update_cluster_module")
+
     return sub_pipeline.build_sub_process(sub_name=_("{}-集群加载modules").format(cluster.immute_domain))

@@ -29,6 +29,7 @@ from backend.db_services.dbbase.resources import query
 from backend.db_services.dbbase.resources.query import ResourceList
 from backend.db_services.dbbase.resources.register import register_resource_decorator
 from backend.db_services.ipchooser.query.resource import ResourceQueryHelper
+from backend.db_services.redis.redis_modules.models.redis_module_support import ClusterRedisModuleAssociate
 from backend.db_services.redis.resources.constants import SQL_QUERY_MASTER_SLAVE_STATUS
 from backend.utils.basic import dictfetchall
 
@@ -152,6 +153,10 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
             forward_to__cluster_entry_type=ClusterEntryType.CLB.value,
         ).exists()
 
+        # 获取集群module名称
+        cluster_module = ClusterRedisModuleAssociate.objects.filter(cluster_id=cluster.id).first()
+        module_names = cluster_module.module_names if cluster_module is not None else []
+
         # 集群额外信息
         cluster_extra_info = {
             "cluster_spec": cluster_spec,
@@ -162,6 +167,7 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
             "redis_slave": redis_slave,
             "cluster_shard_num": len(redis_master),
             "machine_pair_cnt": machine_pair_cnt,
+            "module_names": module_names,
         }
         cluster_info = super()._to_cluster_representation(
             cluster,

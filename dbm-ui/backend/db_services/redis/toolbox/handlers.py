@@ -20,6 +20,8 @@ from backend.db_meta.models import Cluster
 from backend.db_services.dbbase.cluster.handlers import ClusterServiceHandler
 from backend.db_services.ipchooser.handlers.host_handler import HostHandler
 from backend.db_services.ipchooser.query.resource import ResourceQueryHelper
+from backend.db_services.redis.redis_modules.models import TbRedisModuleSupport
+from backend.db_services.redis.redis_modules.models.redis_module_support import ClusterRedisModuleAssociate
 from backend.db_services.redis.resources.constants import SQL_QUERY_COUNT_INSTANCES, SQL_QUERY_INSTANCES
 from backend.db_services.redis.resources.redis_cluster.query import RedisListRetrieveResource
 from backend.exceptions import ApiResultError
@@ -167,3 +169,19 @@ class ToolboxHandler(ClusterServiceHandler):
             return {"query": "", "error_msg": err.message}
 
         return {"query": rpc_results[0]["result"], "error_msg": ""}
+
+    @classmethod
+    def get_cluster_module_info(cls, cluster_id: int, version: str):
+        """
+        获取集群module信息
+        """
+        # 获取版本支持的module名称列表
+        support_modules = TbRedisModuleSupport.objects.filter(major_version=version).values_list(
+            "module_name", flat=True
+        )
+        # 获取集群已安装的module名称列表
+        cluster_module_associate = ClusterRedisModuleAssociate.objects.filter(cluster_id=cluster_id).first()
+        cluster_modules = getattr(cluster_module_associate, "module_names", [])
+        # 字典输出集群是否安装的module列表
+        results = {item: (item in cluster_modules) for item in support_modules}
+        return {"results": results}

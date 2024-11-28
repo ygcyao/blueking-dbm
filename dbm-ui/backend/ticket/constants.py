@@ -343,7 +343,7 @@ class TicketType(str, StructuredEnum):
     REDIS_CLUSTER_STORAGES_CLI_CONNS_KILL = TicketEnumField("REDIS_CLUSTER_STORAGES_CLI_CONNS_KILL", _("Redis 集群存储层cli连接kill"), register_iam=False)  # noqa
     REDIS_CLUSTER_RENAME_DOMAIN = TicketEnumField("REDIS_CLUSTER_RENAME_DOMAIN", _("Redis集群域名重命名"), _("集群维护"))
     REDIS_CLUSTER_MAXMEMORY_SET = TicketEnumField("REDIS_CLUSTER_MAXMEMORY_SET", _("Redis 集群设置maxmemory"))  # noqa
-    REDIS_CLUSTER_LOAD_MODULES = TicketEnumField("REDIS_CLUSTER_LOAD_MODULES", _("Redis 集群加载modules"))  # noqa
+    REDIS_CLUSTER_LOAD_MODULES = TicketEnumField("REDIS_CLUSTER_LOAD_MODULES", _("Redis 集群安装modules"))  # noqa
     REDIS_TENDISPLUS_LIGHTNING_DATA = TicketEnumField("REDIS_TENDISPLUS_LIGHTNING_DATA", _("Tendisplus闪电导入数据"), _("集群维护"))  # noqa
     REDIS_CLUSTER_INS_MIGRATE = TicketEnumField("REDIS_CLUSTER_INS_MIGRATE", _("Redis 集群指定实例迁移"), _("集群管理"))
     REDIS_SINGLE_INS_MIGRATE = TicketEnumField("REDIS_SINGLE_INS_MIGRATE", _("Redis 主从指定实例迁移"), _("集群管理"))
@@ -566,6 +566,20 @@ class SwitchConfirmType(str, StructuredEnum):
 
     USER_CONFIRM = EnumField("user_confirm", _("需要人工确认"))
     NO_CONFIRM = EnumField("no_confirm", _("无需确认"))
+
+
+class LoadConfirmType(str, StructuredEnum):
+    """
+    加载Module类型
+    """
+
+    REDIS_BLOOM = EnumField("redisbloom", _("redisbloom"))
+    REDIS_CELL = EnumField("rediscell", _("rediscell"))
+    FO4_LOCK = EnumField("fo4_lock", _("fo4_lock"))
+    FO4_MATCHMAKER = EnumField("fo4_matchmaker", _("fo4_matchmaker"))
+    FO4_UTIL = EnumField("fo4_util", _("fo4_util"))
+    JLSY_B2 = EnumField("jlsy-b2", _("jlsy-b2"))
+    REDIS_JSON = EnumField("redisjson", _("redisjson"))
 
 
 class SyncDisconnectSettingType(str, StructuredEnum):

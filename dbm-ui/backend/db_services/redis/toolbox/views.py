@@ -23,6 +23,7 @@ from backend.db_services.redis.constants import RedisVersionQueryType
 from backend.db_services.redis.toolbox.handlers import ToolboxHandler
 from backend.db_services.redis.toolbox.serializers import (
     GetClusterCapacityInfoSerializer,
+    GetClusterModuleInfoSerializer,
     GetClusterVersionSerializer,
     QueryByOneClusterSerializer,
     QueryClusterIpsSerializer,
@@ -95,3 +96,14 @@ class ToolboxViewSet(BaseClusterViewSet):
         update_info = get_cluster_capacity_update_required_info(**data)
         update_fields = ["capacity_update_type", "require_spec_id", "require_machine_group_num", "err_msg"]
         return Response(dict(zip(update_fields, update_info)))
+
+    @common_swagger_auto_schema(
+        operation_summary=_("获取集群module信息"),
+        query_serializer=GetClusterModuleInfoSerializer(),
+        tags=[SWAGGER_TAG],
+    )
+    @action(methods=["GET"], detail=False, serializer_class=GetClusterModuleInfoSerializer, pagination_class=None)
+    def get_cluster_module_info(self, request, bk_biz_id, **kwargs):
+        data = self.params_validate(self.get_serializer_class())
+        cluster_id, version = data["cluster_id"], data["version"]
+        return Response(ToolboxHandler.get_cluster_module_info(cluster_id, version))
