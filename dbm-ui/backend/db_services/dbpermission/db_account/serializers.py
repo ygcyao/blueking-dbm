@@ -42,7 +42,15 @@ class DBAccountBaseSerializer(serializers.Serializer):
 
         # 不允许使用特殊账户名称
         special_account_names = ACCOUNT_RULES_MAP.get(account_type, [])
-        if user in special_account_names:
+        # 检查是否为MongoDB类型，并尝试分割用户名
+        second_part = None
+        if account_type == AccountType.MONGODB:
+            try:
+                first_part, second_part = user.split(".", 1)
+            except ValueError:
+                pass
+
+        if second_part in special_account_names or user in special_account_names:
             raise serializers.ValidationError(_("不允许使用特殊账号名称[{}], 请重新更改账号名".format(user)))
 
     @classmethod
