@@ -113,18 +113,18 @@ class SQLServerRenameFlowParamBuilder(builders.FlowParamBuilder):
 
     def format_db_rename_infos(self, cluster_key, from_key, to_key):
         """填充db重命名信息"""
-        dbrename_infos: List[Dict[str, str]] = []
+        dbrename_infos_dict = defaultdict(list)
         for info in self.ticket_data["infos"]:
-            dbrename_infos.extend(
-                [
-                    {
-                        "cluster_id": info[cluster_key],
-                        "rename_infos": [{"db_name": db[from_key], "target_db_name": db[to_key]}],
-                    }
-                    for db in info["rename_infos"]
-                    if db.get(from_key) and db.get(to_key)
-                ]
-            )
+            cluster_id = info[cluster_key]
+            for db in info["rename_infos"]:
+                if db.get(from_key) and db.get(to_key):
+                    dbrename_infos_dict[cluster_id].append({"db_name": db[from_key], "target_db_name": db[to_key]})
+
+        # 以集群为维度 将字典转换为所需的列表格式
+        dbrename_infos = [
+            {"cluster_id": cluster_id, "rename_infos": rename_infos}
+            for cluster_id, rename_infos in dbrename_infos_dict.items()
+        ]
         return dbrename_infos
 
     def format_target_cluster_rename_infos(self):
