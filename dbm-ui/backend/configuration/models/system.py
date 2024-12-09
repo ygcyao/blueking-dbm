@@ -157,6 +157,19 @@ class BizSettings(AbstractSettings):
         )
 
     @classmethod
+    def batch_insert_setting_value(cls, bk_biz_id: int, settings: [dict], user: str = "admin"):
+        # 遍历列表插入配置记录
+        for record in settings:
+            super().insert_setting_value(
+                key={"key": record["key"], "bk_biz_id": bk_biz_id},
+                value=record["value"],
+                value_type=record.get("type", "str"),
+                user=user,
+                desc=constants.BizSettingsEnum.get_choice_label(record["key"]),
+            )
+        return
+
+    @classmethod
     def get_exact_hosting_biz(cls, bk_biz_id: int, cluster_type: str) -> int:
         """
         根据数据库类型 查询业务在 CMDB 准确托管的业务

@@ -53,11 +53,23 @@ class ListBizSettingsResponseSerializer(serializers.Serializer):
         swagger_schema_fields = {"example": BIZ_SETTINGS_DATA}
 
 
-class UpdateBizSettingsSerializer(serializers.Serializer):
-    bk_biz_id = serializers.IntegerField(help_text=_("业务ID"))
+class BizSettingSerializer(serializers.Serializer):
+    """单个业务设置的序列化器"""
+
     key = serializers.CharField(help_text=_("更新key"))
     value = serializers.JSONField(help_text=_("更新value"))
     value_type = serializers.CharField(help_text=_("value类型"), default="dict", required=False)
+
+
+class UpdateBizSettingsSerializer(BizSettingSerializer):
+    bk_biz_id = serializers.IntegerField(help_text=_("业务ID"))
+
+
+class BatchUpdateBizSettingsSerializer(serializers.Serializer):
+    """用于批量更新业务设置的序列化器"""
+
+    bk_biz_id = serializers.IntegerField(help_text=_("业务ID"))
+    settings = BizSettingSerializer(many=True, help_text=_("业务设置列表"))
 
 
 class ProfileSerializer(serializers.Serializer):

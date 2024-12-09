@@ -20,6 +20,7 @@ from backend.bk_web.swagger import common_swagger_auto_schema
 from backend.configuration.constants import DISK_CLASSES, SystemSettingsEnum
 from backend.configuration.models.system import BizSettings, SystemSettings
 from backend.configuration.serializers import (
+    BatchUpdateBizSettingsSerializer,
     BizSettingsSerializer,
     ListBizSettingsResponseSerializer,
     ListBizSettingsSerializer,
@@ -31,6 +32,7 @@ from backend.db_services.ipchooser.constants import IDLE_HOST_MODULE
 from backend.flow.utils.cc_manage import CcManage
 from backend.iam_app.dataclass.actions import ActionEnum
 from backend.iam_app.handlers.drf_perm.base import DBManagePermission, RejectPermission, ResourceActionPermission
+from backend.iam_app.handlers.drf_perm.dbconfig import BizAssistancePermission
 
 tags = [_("系统设置")]
 
@@ -131,7 +133,9 @@ class BizSettingsViewSet(viewsets.AuditedModelViewSet):
     serializer_class = BizSettingsSerializer
     queryset = BizSettings.objects.all()
 
-    action_permission_map = {}
+    action_permission_map = {
+        ("batch_update_settings",): [BizAssistancePermission()],
+    }
     default_permission_class = [DBManagePermission()]
 
     @common_swagger_auto_schema(
@@ -173,4 +177,15 @@ class BizSettingsViewSet(viewsets.AuditedModelViewSet):
     def update_settings(self, request, *args, **kwargs):
         setting_data = self.params_validate(self.get_serializer_class())
         BizSettings.insert_setting_value(**setting_data, user=request.user.username)
+        return Response()
+
+    @common_swagger_auto_schema(
+        operation_summary=_("批量更新业务设置列表键值"),
+        request_body=BatchUpdateBizSettingsSerializer(),
+        tags=tags,
+    )
+    @action(detail=False, methods=["POST"], serializer_class=BatchUpdateBizSettingsSerializer)
+    def batch_update_settings(self, request, *args, **kwargs):
+        setting_data = self.params_validate(self.get_serializer_class())
+        BizSettings.batch_insert_setting_value(**setting_data, user=request.user.username)
         return Response()

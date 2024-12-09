@@ -165,11 +165,21 @@ class ActionEnum:
 
     BIZ_TICKET_CONFIG_SET = ActionMeta(
         id="biz_ticket_config_set",
-        name=_("业务单据流程设置"),
+        name=_("单据免审批设置"),
         name_en="biz_ticket_config_set",
         type="edit",
         related_actions=[DB_MANAGE.id],
         related_resource_types=[ResourceEnum.BUSINESS, ResourceEnum.DBTYPE],
+        group=_("业务配置"),
+    )
+
+    BIZ_ASSISTANCE_VARS_CONFIG = ActionMeta(
+        id="biz_assistance_vars_config",
+        name=_("单据协助设置"),
+        name_en="biz_assistance_vars_config",
+        type="edit",
+        related_actions=[DB_MANAGE.id],
+        related_resource_types=[ResourceEnum.BUSINESS],
         group=_("业务配置"),
     )
 

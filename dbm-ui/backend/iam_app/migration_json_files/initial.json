@@ -1046,7 +1046,7 @@
             "operation": "upsert_action",
             "data": {
                 "id": "biz_ticket_config_set",
-                "name": "业务单据流程设置",
+                "name": "单据免审批设置",
                 "name_en": "biz_ticket_config_set",
                 "type": "edit",
                 "related_resource_types": [
@@ -1080,8 +1080,39 @@
                 "hidden": false,
                 "group": "业务配置",
                 "subgroup": "",
-                "description": "业务单据流程设置",
+                "description": "单据免审批设置",
                 "description_en": "biz_ticket_config_set"
+            }
+        },
+        {
+            "operation": "upsert_action",
+            "data": {
+                "id": "biz_assistance_vars_config",
+                "name": "单据协助设置",
+                "name_en": "biz_assistance_vars_config",
+                "type": "edit",
+                "related_resource_types": [
+                    {
+                        "system_id": "bk_cmdb",
+                        "id": "biz",
+                        "selection_mode": "instance",
+                        "related_instance_selections": [
+                            {
+                                "system_id": "bk_cmdb",
+                                "id": "business"
+                            }
+                        ]
+                    }
+                ],
+                "related_actions": [
+                    "db_manage"
+                ],
+                "version": 1,
+                "hidden": false,
+                "group": "业务配置",
+                "subgroup": "",
+                "description": "单据协助设置",
+                "description_en": "biz_assistance_vars_config"
             }
         },
         {
