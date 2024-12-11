@@ -11200,6 +11200,9 @@
                             "id": "ticket_view"
                         },
                         {
+                            "id": "biz_assistance_vars_config"
+                        },
+                        {
                             "id": "flow_detail"
                         },
                         {

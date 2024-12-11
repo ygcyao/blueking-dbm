@@ -181,6 +181,7 @@ class ActionEnum:
         related_actions=[DB_MANAGE.id],
         related_resource_types=[ResourceEnum.BUSINESS],
         group=_("业务配置"),
+        common_labels=[CommonActionLabel.BIZ_MAINTAIN],
     )
 
     RESOURCE_MANAGE = ActionMeta(
