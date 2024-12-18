@@ -42,7 +42,7 @@ class SQLServerHAApplyDetailSerializer(SQLServerSingleApplyDetailSerializer):
             attrs["cluster_count"] // attrs["inst_num"] + bool(attrs["cluster_count"] % attrs["inst_num"])
         )
         if attrs["ip_source"] == IpSource.RESOURCE_POOL:
-            machine_count = attrs["resource_spec"][MachineType.SQLSERVER_HA.value]["count"]
+            machine_count = attrs["resource_spec"]["backend_group"]["count"] * 2
         else:
             machine_count = len(attrs["nodes"][MachineType.SQLSERVER_HA.value])
         if machine_count != expected_count:
@@ -85,12 +85,12 @@ class SQLServerHAApplyFlowParamBuilder(SQLServerSingleApplyFlowParamBuilder):
 
     @classmethod
     def insert_ip_into_apply_infos(cls, ticket_data, infos: List[Dict]):
-        backend_nodes = ticket_data["nodes"][MachineType.SQLSERVER_HA.value]
+        backend_nodes = ticket_data["nodes"]["backend_group"]
         for index, apply_info in enumerate(infos):
-            # 每组集群需要两个后端 IP 和两个 Proxy IP
-            start, end = index * 2, (index + 1) * 2
-            apply_info["mssql_master_host"] = backend_nodes[start:end][0]
-            apply_info["mssql_slave_host"] = backend_nodes[start:end][1]
+            # # 每组集群需要两个后端 IP 和两个 Proxy IP
+            # start, end = index * 2, (index + 1) * 2
+            apply_info["mssql_master_host"] = backend_nodes[index]["master"]
+            apply_info["mssql_slave_host"] = backend_nodes[index]["slave"]
 
 
 class SQLServerHaApplyResourceParamBuilder(SQLServerSingleApplyResourceParamBuilder):
@@ -101,6 +101,9 @@ class SQLServerHaApplyResourceParamBuilder(SQLServerSingleApplyResourceParamBuil
         next_flow = self.ticket.next_flow()
         infos = next_flow.details["ticket_data"]["infos"]
         SQLServerHAApplyFlowParamBuilder.insert_ip_into_apply_infos(self.ticket.details, infos)
+        next_flow.details["ticket_data"]["resource_spec"]["sqlserver_ha"] = next_flow.details["ticket_data"][
+            "resource_spec"
+        ]["master"]
         next_flow.details["ticket_data"].update(infos=infos)
         next_flow.save(update_fields=["details"])
 
