@@ -82,13 +82,6 @@ class TicketTask(object):
             InnerFlow(flow_obj=flow).retry()
 
     @classmethod
-    def _create_ticket(cls, ticket_type, creator, bk_biz_id, remark, details) -> None:
-        """创建一个新单据"""
-        Ticket.create_ticket(
-            ticket_type=ticket_type, creator=creator, bk_biz_id=bk_biz_id, remark=remark, details=details
-        )
-
-    @classmethod
     def auto_create_data_repair_ticket(cls):
         """根据例行校验的结果自动创建修复单据"""
 
@@ -230,12 +223,14 @@ class TicketTask(object):
                     ],
                 }
                 ticket_type = getattr(TicketType, f"{db_type.upper()}_DATA_REPAIR")
-                cls._create_ticket(
-                    ticket_type=ticket_type,
-                    creator=DEFAULT_SYSTEM_USER,
-                    bk_biz_id=biz,
-                    remark=_("集群存在数据不一致，自动创建的数据修复单据"),
-                    details=ticket_details,
+                _create_ticket.apply_async(
+                    kwargs={
+                        "ticket_type": ticket_type,
+                        "creator": DEFAULT_SYSTEM_USER,
+                        "bk_biz_id": biz,
+                        "remark": _("集群存在数据不一致，自动创建的数据修复单据"),
+                        "details": ticket_details,
+                    }
                 )
 
     @classmethod
@@ -292,6 +287,12 @@ class TicketTask(object):
 
 
 # ----------------------------- 异步执行任务函数 ----------------------------------------
+@shared_task
+def _create_ticket(ticket_type, creator, bk_biz_id, remark, details) -> None:
+    """创建一个新单据"""
+    Ticket.create_ticket(ticket_type=ticket_type, creator=creator, bk_biz_id=bk_biz_id, remark=remark, details=details)
+
+
 @shared_task
 def _apply_ticket_task(ticket_id: int, func_name: str, params: dict):
     """执行异步任务函数体"""
