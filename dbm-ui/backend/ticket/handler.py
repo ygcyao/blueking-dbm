@@ -8,6 +8,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+import asyncio
 import itertools
 import json
 import logging
@@ -43,6 +44,7 @@ from backend.ticket.models import Flow, Ticket, TicketFlowsConfig, Todo
 from backend.ticket.serializers import TodoSerializer
 from backend.ticket.todos import BaseTodoContext, TodoActorFactory
 from backend.ticket.todos.itsm_todo import ItsmTodoContext
+from backend.utils.batch_request import async_func
 
 logger = logging.getLogger("root")
 
@@ -287,13 +289,23 @@ class TicketHandler:
         @param action 动作
         @param operations: todo列表，每个item包含todo id和params
         """
-
-        results = []
+        # 批量处理待办操作
+        operation_contents = []
         for operation in operations:
-            todo_id, params = operation["todo_id"], operation["params"]
-            todo = Todo.objects.get(id=todo_id)
-            TodoActorFactory.actor(todo).process(user, action, params)
-            results.append(todo)
+            operation_contents.append(
+                (
+                    operation["todo_id"],
+                    operation["params"],
+                    action,
+                    user,
+                )
+            )
+
+        # 执行异步处理
+        asyncio.run(async_func(TicketHandler.process_single_todo, operation_contents))
+
+        # 获取处理后的待办事项
+        results = [Todo.objects.get(id=operation["todo_id"]) for operation in operations]
         return TodoSerializer(results, many=True).data
 
     @classmethod
@@ -458,3 +470,11 @@ class TicketHandler:
                 context=ItsmTodoContext(itsm_flow.id, ticket.id).to_dict(),
             )
             print(f"ticket[{ticket.id}] add a itsm todo")
+
+    @classmethod
+    def process_single_todo(cls, todo_id, params, act, username):
+        """
+        处理单个待办的辅助函数
+        """
+        todo = Todo.objects.select_related("ticket").prefetch_related("ticket__flows").get(id=todo_id)
+        TodoActorFactory.actor(todo).process(username, act, params)

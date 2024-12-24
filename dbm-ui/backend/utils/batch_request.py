@@ -8,6 +8,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+import asyncio
+import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from multiprocessing.pool import ThreadPool
@@ -226,3 +228,20 @@ def batch_decorator(
         return {"data": data, "total": len(data)}
 
     return wrapper
+
+
+async def async_func(func, params_list):
+    """
+    通用异步函数
+    @param func: 需要并发执行的函数
+    @param params_list: 参数列表，每个元素是一个元组，包含传递给 func 的参数
+    """
+
+    loop = asyncio.get_running_loop()
+
+    # 自定义线程池
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # 将所有的任务提交到线程池
+        tasks = [loop.run_in_executor(executor, func, *params) for params in params_list]
+        # 等待所有任务完成
+        await asyncio.gather(*tasks)

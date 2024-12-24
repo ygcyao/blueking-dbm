@@ -82,7 +82,6 @@ from backend.ticket.serializers import (
     TodoSerializer,
     UpdateTicketFlowConfigSerializer,
 )
-from backend.ticket.todos import TodoActorFactory
 
 TICKET_TAG = "ticket"
 
@@ -240,6 +239,7 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
             builder.patch_ticket_detail()
             builder.init_ticket_flows()
 
+        ticket = Ticket.objects.prefetch_related("flows").get(pk=ticket.pk)
         TicketFlowManager(ticket=ticket).run_next_flow()
 
     @swagger_auto_schema(
@@ -426,10 +426,9 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
         ticket = self.get_object()
 
         validated_data = self.params_validate(self.get_serializer_class())
-
-        todo = ticket.todo_of_ticket.get(id=validated_data["todo_id"])
-        TodoActorFactory.actor(todo).process(request.user.username, validated_data["action"], validated_data["params"])
-
+        TicketHandler.process_single_todo(
+            validated_data["todo_id"], validated_data["params"], validated_data["action"], request.user.username
+        )
         return Response(TodoSerializer(ticket.todo_of_ticket.all(), many=True).data)
 
     @common_swagger_auto_schema(

@@ -146,8 +146,10 @@ class Ticket(AuditedModel):
          1. 取 TicketFlow 中最后一个 flow_obj_id 非空的流程
          2. 若 TicketFlow 中都流程都为空，则代表整个单据未开始，取第一个流程
         """
-        if Flow.objects.filter(ticket=self).exclude(status=TicketFlowStatus.PENDING).exists():
-            return Flow.objects.filter(ticket=self).exclude(status=TicketFlowStatus.PENDING).last()
+        non_pending_flows = [flow for flow in self.flows.all() if flow.status != TicketFlowStatus.PENDING]
+        if non_pending_flows:
+            # 返回最后一个符合条件的 Flow 对象
+            return non_pending_flows[-1]
         # 初始化时，当前节点和下一个节点为同一个
         return self.next_flow()
 
@@ -155,13 +157,10 @@ class Ticket(AuditedModel):
         """
         下一个流程，即 TicketFlow 中第一个为PENDING的流程
         """
-        next_flows = Flow.objects.filter(ticket=self, status=TicketFlowStatus.PENDING)
+        next_flows = [flow for flow in self.flows.all() if flow.status == TicketFlowStatus.PENDING]
 
-        # 支持跳过人工审批和确认环节
-        if env.ITSM_FLOW_SKIP:
-            next_flows = next_flows.exclude(flow_type__in=[FlowType.BK_ITSM, FlowType.PAUSE])
-
-        return next_flows.first()
+        # 返回第一个符合条件的 Flow 对象
+        return next_flows[0] if next_flows else None
 
     @classmethod
     def create_ticket(
