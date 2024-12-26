@@ -16,7 +16,6 @@ from backend.configuration.constants import AffinityEnum
 from backend.db_meta.enums import ClusterType
 from backend.db_meta.models import Cluster
 from backend.db_services.dbbase.constants import IpSource
-from backend.db_services.version.utils import query_versions_by_key
 from backend.flow.engine.controller.redis import RedisController
 from backend.ticket import builders
 from backend.ticket.builders.common.base import SkipToRepresentationMixin
@@ -67,15 +66,6 @@ class RedisTypeUpdateDetailSerializer(SkipToRepresentationMixin, serializers.Ser
                         cluster.immute_domain,
                         attr.get("target_cluster_type"),
                         cluster.cluster_type,
-                    )
-                )
-
-            if attr.get("db_version") not in query_versions_by_key(attr.get("target_cluster_type")):
-                raise serializers.ValidationError(
-                    _("集群({})：{} 类集群不支持版本 {}.").format(
-                        cluster.immute_domain,
-                        attr.get("target_cluster_type"),
-                        attr.get("db_version"),
                     )
                 )
 
