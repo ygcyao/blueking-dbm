@@ -12,8 +12,9 @@ from django.db.models import CharField, F, Q, Value
 from django.db.models.functions import Concat
 from django.forms import model_to_dict
 
+from backend.configuration.models import DBAdministrator
 from backend.db_meta.enums import ClusterType
-from backend.db_meta.models import Cluster, Machine, ProxyInstance, StorageInstance
+from backend.db_meta.models import Cluster, ClusterEntry, Machine, ProxyInstance, StorageInstance
 from backend.db_services.dbresource.handlers import ResourceHandler
 from backend.db_services.quick_search import constants
 from backend.db_services.quick_search.constants import FilterType, ResourceType
@@ -134,17 +135,59 @@ class QSearchHandler(object):
         limit = limit or self.limit
         return list(objs[:limit].values(*fields))
 
+    def supplementary_fields(self, objects_list: list):
+        """补充 主dba和db类型字段"""
+        for object in objects_list:
+            # 将 db_type 补充到对象中
+            object["db_type"] = ClusterType.cluster_type_to_db_type(object["cluster_type"])
+
+            # 获取dba人员  # DBA 人员获取优先级： 业务 > 平台 > 默认空值
+            dba_list = DBAdministrator.list_biz_admins(bk_biz_id=object["bk_biz_id"])
+            dba_content = next((dba for dba in dba_list if dba["db_type"] == object["db_type"]))
+            object["dba"] = dba_content["users"][0] if dba_content["users"] else None
+            object["is_show_dba"] = dba_content["is_show"]
+        return objects_list
+
     def filter_cluster_name(self, keyword_list: list):
         """过滤集群名"""
         qs = self.generate_filter_for_str("name", keyword_list)
         objs = Cluster.objects.filter(qs)
         return self.common_filter(objs)
 
-    def filter_cluster_domain(self, keyword_list: list):
-        """过滤集群域名"""
-        qs = self.generate_filter_for_domain("immute_domain", keyword_list)
-        objs = Cluster.objects.filter(qs)
-        return self.common_filter(objs)
+    def filter_entry(self, keyword_list: list):
+        """过滤集群访问入口"""
+        qs = self.generate_filter_for_domain("entry", keyword_list)
+
+        if self.bk_biz_ids:
+            qs = Q(bk_biz_id__in=self.bk_biz_ids) & qs
+
+        if self.db_types:
+            qs = Q(cluster_type__in=self.cluster_types) & qs
+
+        common_fields = {
+            "cluster_type": F("cluster__cluster_type"),
+            "immute_domain": F("cluster__immute_domain"),
+            "bk_biz_id": F("cluster__bk_biz_id"),
+            "cluster_status": F("cluster__status"),
+            "region": F("cluster__region"),
+            "disaster_tolerance_level": F("cluster__disaster_tolerance_level"),
+            "major_version": F("cluster__major_version"),
+        }
+        fields = [
+            "id",
+            "cluster_entry_type",
+            "entry",
+            "cluster_id",
+            "role",
+            *common_fields.keys(),
+        ]
+        objs = (
+            ClusterEntry.objects.filter(qs)
+            .select_related("cluster")
+            .annotate(**common_fields)
+            .values(*fields)[: self.limit]
+        )
+        return self.supplementary_fields(list(objs))
 
     def filter_instance(self, keyword_list: list):
         """过滤实例"""
@@ -166,19 +209,9 @@ class QSearchHandler(object):
             "bk_cloud_id": F("machine__bk_cloud_id"),
             "bk_idc_area": F("machine__bk_idc_area"),
             "bk_idc_name": F("machine__bk_idc_name"),
+            "bk_sub_zone": F("machine__bk_sub_zone"),
             "ip_port": Concat("machine__ip", Value(":"), "port", output_field=CharField()),
         }
-
-        storage_objs = (
-            StorageInstance.objects.prefetch_related("cluster", "machine")
-            .annotate(role=F("instance_role"), **common_fields)
-            .filter(qs)
-        )
-        proxy_objs = (
-            ProxyInstance.objects.prefetch_related("cluster", "machine")
-            .annotate(role=F("access_layer"), **common_fields)
-            .filter(qs)
-        )
         fields = [
             "id",
             "name",
@@ -192,7 +225,20 @@ class QSearchHandler(object):
             "phase",
             *common_fields.keys(),
         ]
-        return list(storage_objs[: self.limit].values(*fields)) + list(proxy_objs[: self.limit].values(*fields))
+        storage_objs = (
+            StorageInstance.objects.prefetch_related("cluster", "machine")
+            .annotate(role=F("instance_role"), **common_fields)
+            .filter(qs)
+            .values(*fields)[: self.limit]
+        )
+        proxy_objs = (
+            ProxyInstance.objects.prefetch_related("cluster", "machine")
+            .annotate(role=F("access_layer"), **common_fields)
+            .filter(qs)
+            .values(*fields)[: self.limit]
+        )
+
+        return self.supplementary_fields(list(storage_objs) + list(proxy_objs))
 
     def filter_task(self, keyword_list: list):
         """过滤任务"""

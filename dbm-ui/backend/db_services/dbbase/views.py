@@ -29,6 +29,7 @@ from backend.db_services.dbbase.instances.handlers import InstanceHandler
 from backend.db_services.dbbase.instances.yasg_slz import CheckInstancesResSLZ, CheckInstancesSLZ
 from backend.db_services.dbbase.resources import register
 from backend.db_services.dbbase.resources.query import ListRetrieveResource, ResourceList
+from backend.db_services.dbbase.resources.serializers import ClusterSLZ
 from backend.db_services.dbbase.serializers import (
     ClusterDbTypeSerializer,
     ClusterEntryFilterSerializer,
@@ -45,6 +46,7 @@ from backend.db_services.dbbase.serializers import (
     QueryClusterCapSerializer,
     QueryClusterInstanceCountSerializer,
     ResourceAdministrationSerializer,
+    UpdateClusterAliasSerializer,
     WebConsoleResponseSerializer,
     WebConsoleSerializer,
 )
@@ -407,3 +409,18 @@ class DBBaseViewSet(viewsets.SystemViewSet):
         cluster_stat_map = {cluster_domain_map[domain]: cap for domain, cap in cluster_stat_map.items()}
 
         return Response(cluster_stat_map)
+
+    @common_swagger_auto_schema(
+        operation_summary=_("更新集群别名"),
+        request_body=UpdateClusterAliasSerializer(),
+        tags=[SWAGGER_TAG],
+    )
+    @action(methods=["POST"], detail=False, serializer_class=UpdateClusterAliasSerializer)
+    def update_cluster_alias(self, request):
+        validated_data = self.params_validate(self.get_serializer_class())
+        """更新集群别名"""
+        cluster = Cluster.objects.get(bk_biz_id=validated_data["bk_biz_id"], id=validated_data["cluster_id"])
+        cluster.alias = validated_data["new_alias"]
+        cluster.save(update_fields=["alias"])
+        serializer = ClusterSLZ(cluster)
+        return Response(serializer.data)

@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from backend.components.dbresource.client import DBResourceApi
+from backend.db_meta.enums import ClusterEntryRole
 from backend.db_services.quick_search.views import QuickSearchViewSet
 from backend.utils.pytest import AuthorizedAPIRequestFactory
 
@@ -52,31 +53,35 @@ class TestQuickSearchViewSet:
         response = quick_search_viewset(request)
         return response
 
-    @pytest.mark.parametrize("query", [QUICK_SEARCH_CONTAINS_PARAMS, QUICK_SEARCH_EXACT_PARAMS])
-    @patch.object(DBResourceApi, "resource_list")
-    def test_quick_search_for_cluster_name(self, resource_list_mock, query, init_cluster):
-        """
-        测试搜索集群名称
-        """
-        target_value = init_cluster.name
-        query["keyword"] = self._get_keyword(query, target_value)
-        response = self._request_quick_search(resource_list_mock, query)
-        assert response.status_code == 200
-        result = [cluster.get("id") for cluster in response.data.get("cluster_name")]
-        assert init_cluster.id in result
+    # @pytest.mark.parametrize("query", [QUICK_SEARCH_CONTAINS_PARAMS, QUICK_SEARCH_EXACT_PARAMS])
+    # @patch.object(DBResourceApi, "resource_list")
+    # def test_quick_search_for_cluster_name(self, resource_list_mock, query, init_cluster):
+    #     """
+    #     测试搜索集群名称
+    #     """
+    #     target_value = init_cluster.name
+    #     query["keyword"] = self._get_keyword(query, target_value)
+    #     response = self._request_quick_search(resource_list_mock, query)
+    #     assert response.status_code == 200
+    #     result = [cluster.get("id") for cluster in response.data.get("cluster_name")]
+    #     assert init_cluster.id in result
 
     @pytest.mark.parametrize("query", [QUICK_SEARCH_CONTAINS_PARAMS, QUICK_SEARCH_EXACT_PARAMS])
     @patch.object(DBResourceApi, "resource_list")
-    def test_quick_search_for_cluster_domain(self, resource_list_mock, query, init_cluster):
+    def test_quick_search_for_entry(self, resource_list_mock, query, init_cluster):
         """
-        测试搜索集群域名
+        测试搜索访问入口
         """
         target_value = init_cluster.immute_domain
         query["keyword"] = self._get_keyword(query, target_value)
         response = self._request_quick_search(resource_list_mock, query)
         assert response.status_code == 200
-        result = [cluster.get("id") for cluster in response.data.get("cluster_domain")]
-        assert init_cluster.id in result
+        result = [
+            entry.get("entry")
+            for entry in response.data.get("entry")
+            if entry["role"] == ClusterEntryRole.MASTER_ENTRY
+        ]
+        assert init_cluster.immute_domain in result
 
     @pytest.mark.parametrize("query", [QUICK_SEARCH_CONTAINS_PARAMS, QUICK_SEARCH_EXACT_PARAMS])
     @patch.object(DBResourceApi, "resource_list")

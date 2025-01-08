@@ -16,10 +16,12 @@ from django.db.models import F, Prefetch, Q, QuerySet
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 
+from backend.configuration.constants import DBType
 from backend.constants import IP_PORT_DIVIDER
 from backend.db_meta.enums import ClusterEntryType, ClusterType, InstanceRole
 from backend.db_meta.enums.comm import SystemTagEnum
 from backend.db_meta.models import AppCache, Cluster, ClusterEntry, DBModule, Machine, ProxyInstance, StorageInstance
+from backend.db_services.cmdb.biz import list_modules_by_biz
 from backend.db_services.dbbase.instances.handlers import InstanceHandler
 from backend.db_services.dbbase.resources.query_base import (
     build_q_for_domain_by_cluster,
@@ -485,7 +487,11 @@ class ListRetrieveResource(BaseListRetrieveResource):
         # 预取proxy_queryset，storage_queryset，clusterentry_set,加块查询效率
         cluster_list = cluster_queryset[offset : limit + offset].prefetch_related(
             Prefetch("proxyinstance_set", queryset=proxy_queryset.select_related("machine"), to_attr="proxies"),
-            Prefetch("storageinstance_set", queryset=storage_queryset.select_related("machine"), to_attr="storages"),
+            Prefetch(
+                "storageinstance_set",
+                queryset=storage_queryset.select_related("machine").prefetch_related("as_ejector", "as_receiver"),
+                to_attr="storages",
+            ),
             Prefetch("clusterentry_set", to_attr="entries"),
             "tag_set",
         )
@@ -496,13 +502,25 @@ class ListRetrieveResource(BaseListRetrieveResource):
         # 获取集群与访问入口的映射
         cluster_entry_map = ClusterEntry.get_cluster_entry_map(cluster_ids)
 
-        # 获取DB模块的映射信息
-        db_module_names_map = {
-            module["db_module_id"]: module["db_module_name"]
+        # 获取DB模块dbconfig的映射信息
+        db_module_config_map = {
+            module["db_module_id"]: {
+                "bk_biz_id": module["bk_biz_id"],
+                "db_module_id": module["db_module_id"],
+                "name": module["db_module_name"],
+                "alias_name": module["alias_name"],
+            }
             for module in DBModule.objects.filter(bk_biz_id=bk_biz_id, cluster_type__in=cls.cluster_types).values(
-                "db_module_id", "db_module_name"
+                "bk_biz_id", "db_module_id", "db_module_name", "alias_name"
             )
         }
+
+        # 补充db类型为mysql、tendbcluster、sqlserver的dbconfig信息
+        for cluster_type in cls.cluster_types:
+            db_type = ClusterType.cluster_type_to_db_type(cluster_type)
+            if db_type in [DBType.MySQL, DBType.TenDBCluster, DBType.Sqlserver]:
+                list_module = list_modules_by_biz(bk_biz_id, cluster_type)
+                db_module_config_map.update({module["db_module_id"]: module for module in list_module})
 
         # 获取集群操作记录的映射关系
         cluster_operate_records_map = ClusterOperateRecord.get_cluster_records_map(cluster_ids)
@@ -523,7 +541,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
                     {"cluster_entry_type": entry.cluster_entry_type, "entry": entry.entry, "role": entry.role}
                     for entry in cluster.entries
                 ],
-                db_module_names_map=db_module_names_map,
+                db_module_config_map=db_module_config_map,
                 cluster_entry_map=cluster_entry_map,
                 cluster_operate_records_map=cluster_operate_records_map,
                 cloud_info=cloud_info,
@@ -540,7 +558,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
         cls,
         cluster: Cluster,
         cluster_entry: List[Dict[str, str]],
-        db_module_names_map: Dict[int, str],
+        db_module_config_map: Dict[int, Dict[str, str]],
         cluster_entry_map: Dict[int, Dict[str, str]],
         cluster_operate_records_map: Dict[int, List],
         cloud_info: Dict[str, Any],
@@ -552,7 +570,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
         将集群对象转为可序列化的 dict 结构
         @param cluster: model Cluster 对象, 增加了 storages 和 proxies 属性
         @param cluster_entry: 集群的访问入口列表
-        @param db_module_names_map: key 是 db_module_id, value 是 db_module_name
+        @param db_module_config_map: key 是 db_module_id, value 是 当前集群对应的 dbconfig 映射
         @param cluster_entry_map: key 是 cluster.id, value 是当前集群对应的 entry 映射
         @param cluster_operate_records_map: key 是 cluster.id, value 是当前集群对应的 操作记录 映射
         """
@@ -583,7 +601,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
             "major_version": cluster.major_version,
             "region": cluster.region,
             "city": cluster.region,
-            "db_module_name": db_module_names_map.get(cluster.db_module_id, ""),
+            "db_module_infos": db_module_config_map.get(cluster.db_module_id, {}),
             "db_module_id": cluster.db_module_id,
             "creator": cluster.creator,
             "updater": cluster.updater,

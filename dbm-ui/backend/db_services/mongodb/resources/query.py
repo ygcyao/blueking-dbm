@@ -113,7 +113,7 @@ class MongoDBListRetrieveResource(query.ListRetrieveResource):
         cls,
         cluster: Cluster,
         cluster_entry: List[Dict[str, str]],
-        db_module_names_map: Dict[int, str],
+        db_module_config_map: Dict[int, Dict[str, str]],
         cluster_entry_map: Dict[int, Dict[str, str]],
         cluster_operate_records_map: Dict[int, List],
         cloud_info: Dict[str, Any],
@@ -204,7 +204,7 @@ class MongoDBListRetrieveResource(query.ListRetrieveResource):
         cluster_info = super()._to_cluster_representation(
             cluster,
             cluster_entry,
-            db_module_names_map,
+            db_module_config_map,
             cluster_entry_map,
             cluster_operate_records_map,
             cloud_info,
