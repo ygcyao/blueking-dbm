@@ -31,6 +31,7 @@ from backend.db_services.dbbase.resources.yasg_slz import (
 )
 from backend.db_services.mongodb.resources import constants, yasg_slz
 from backend.db_services.mongodb.resources.query import MongoDBListRetrieveResource
+from backend.iam_app.dataclass import ResourceEnum
 from backend.iam_app.dataclass.actions import ActionEnum
 from backend.iam_app.handlers.drf_perm.base import DBManagePermission
 
@@ -103,6 +104,14 @@ class MongoDBViewSet(ResourceViewSet):
 
     list_perm_actions = [ActionEnum.MONGODB_VIEW, ActionEnum.MONGODB_ENABLE_DISABLE, ActionEnum.MONGODB_DESTROY]
     list_instance_perm_actions = [ActionEnum.MONGODB_VIEW]
+    list_external_perm_actions = [ActionEnum.ACCESS_ENTRY_EDIT]
+
+    @staticmethod
+    def _external_perm_param_field(kwargs):
+        return {
+            ResourceEnum.BUSINESS.id: kwargs["bk_biz_id"],
+            ResourceEnum.DBTYPE.id: kwargs["view_class"].db_type.value,
+        }
 
     @common_swagger_auto_schema(
         operation_summary=_("获取实例的角色类型"),
