@@ -105,6 +105,10 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
         offset: int,
         **kwargs,
     ) -> ResourceList:
+        # 提前预取storage的tuple
+        storage_queryset = storage_queryset.prefetch_related(
+            "machine", "nosqlstoragesetdtl_set", "as_receiver", "as_ejector"
+        )
         # 预取remote的spec
         redis_spec_map = {spec.spec_id: spec for spec in Spec.objects.filter(spec_cluster_type=SpecClusterType.Redis)}
         return super()._filter_cluster_hook(
@@ -132,9 +136,44 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
         **kwargs,
     ) -> Dict[str, Any]:
         """集群序列化"""
-        redis_master = [m.simple_desc for m in cluster.storages if m.instance_role == InstanceRole.REDIS_MASTER]
-        redis_slave = [m.simple_desc for m in cluster.storages if m.instance_role == InstanceRole.REDIS_SLAVE]
-        machine_list = list(set([inst["bk_host_id"] for inst in [*redis_master, *redis_slave]]))
+        # 创建一个字典来存储 ejector_id 到cluster.storages下标的映射
+        ejector_id__storage_map = {storage_instance.id: storage_instance for storage_instance in cluster.storages}
+
+        remote_infos = {InstanceRole.REDIS_MASTER.value: [], InstanceRole.REDIS_SLAVE.value: []}
+        for inst in cluster.storages:
+            try:
+                seg_range = (
+                    inst.nosqlstoragesetdtl_set.all()[0].seg_range
+                    if inst.cluster_type != ClusterType.RedisInstance.value
+                    else "-1"
+                )
+            except IndexError:
+                # 异常处理 因nosqlstoragesetdtl的分片数据只有redis为master才有seg_range值 以下处理是slave找出对应master seg_range并赋予值 供主从对应排序处理
+                master = ejector_id__storage_map.get(inst.as_receiver.all()[0].ejector_id)
+                seg_range = master.nosqlstoragesetdtl_set.all()[0].seg_range if master is not None else "-1"
+            except Exception:
+                # 如果无法找到seg_range，则默认为-1。有可能实例处于restoring状态(比如集群容量变更时)
+                seg_range = "-1"
+
+            remote_infos[inst.instance_role].append({**inst.simple_desc, "seg_range": seg_range})
+
+        remote_infos[InstanceRole.REDIS_MASTER.value].sort(
+            key=lambda x: int(x.get("seg_range", "-1").split("-")[0]) if x.get("seg_range", "-1").split("-")[0] else -1
+        )
+        remote_infos[InstanceRole.REDIS_SLAVE.value].sort(
+            key=lambda x: int(x.get("seg_range", "-1").split("-")[0]) if x.get("seg_range", "-1").split("-")[0] else -1
+        )
+        machine_list = list(
+            set(
+                [
+                    inst["bk_host_id"]
+                    for inst in [
+                        *remote_infos[InstanceRole.REDIS_MASTER.value],
+                        *remote_infos[InstanceRole.REDIS_SLAVE.value],
+                    ]
+                ]
+            )
+        )
         machine_pair_cnt = len(machine_list) / 2
 
         # 补充集群的规格和容量信息
@@ -163,9 +202,9 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
             "cluster_capacity": cluster_capacity,
             "dns_to_clb": dns_to_clb,
             "proxy": [m.simple_desc for m in cluster.proxies],
-            "redis_master": redis_master,
-            "redis_slave": redis_slave,
-            "cluster_shard_num": len(redis_master),
+            "redis_master": remote_infos[InstanceRole.REDIS_MASTER.value],
+            "redis_slave": remote_infos[InstanceRole.REDIS_SLAVE.value],
+            "cluster_shard_num": len(remote_infos[InstanceRole.REDIS_MASTER.value]),
             "machine_pair_cnt": machine_pair_cnt,
             "module_names": module_names,
         }
