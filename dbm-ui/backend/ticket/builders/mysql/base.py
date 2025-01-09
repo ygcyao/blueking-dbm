@@ -72,10 +72,13 @@ class MySQLBaseOperateDetailSerializer(SkipToRepresentationMixin, serializers.Se
         TicketType.MYSQL_PARTITION.value,
         TicketType.MYSQL_PARTITION_CRON.value,
         TicketType.MYSQL_CHECKSUM.value,
+        TicketType.TENDBCLUSTER_RESTORE_SLAVE.value,
     ]
     MASTER_UNAVAILABLE_WHITELIST = [
         TicketType.MYSQL_MASTER_FAIL_OVER.value,
         TicketType.MYSQL_MASTER_SLAVE_SWITCH.value,
+        TicketType.TENDBCLUSTER_MASTER_FAIL_OVER.value,
+        TicketType.MYSQL_MASTER_FAIL_OVER.value,
     ]
     PROXY_UNAVAILABLE_WHITELIST = TicketType.get_values()
     # 集群的flag状态与白名单的映射表
