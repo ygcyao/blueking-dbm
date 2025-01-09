@@ -123,7 +123,7 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
         cls,
         cluster: Cluster,
         cluster_entry: List[Dict[str, str]],
-        db_module_names_map: Dict[int, str],
+        db_module_config_map: Dict[int, Dict[str, str]],
         cluster_entry_map: Dict[int, Dict[str, str]],
         cluster_operate_records_map: Dict[int, List],
         cloud_info: Dict[str, Any],
@@ -132,9 +132,44 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
         **kwargs,
     ) -> Dict[str, Any]:
         """集群序列化"""
-        redis_master = [m.simple_desc for m in cluster.storages if m.instance_role == InstanceRole.REDIS_MASTER]
-        redis_slave = [m.simple_desc for m in cluster.storages if m.instance_role == InstanceRole.REDIS_SLAVE]
-        machine_list = list(set([inst["bk_host_id"] for inst in [*redis_master, *redis_slave]]))
+        # 创建一个字典来存储 ejector_id 到cluster.storages下标的映射
+        ejector_id_to_index = {}
+
+        # 遍历 cluster.storages，获取每个 StorageInstance 的下标和 id
+        for index, storage_instance in enumerate(cluster.storages):
+            ejector_id_to_index[storage_instance.id] = index
+
+        remote_infos = {InstanceRole.REDIS_MASTER.value: [], InstanceRole.REDIS_SLAVE.value: []}
+        for inst in cluster.storages:
+            try:
+                seg_range = inst.nosqlstoragesetdtl_set.all()[0].seg_range
+            except IndexError:
+                # 异常处理 因nosqlstoragesetdtl的分片数据只有redis为master才有seg_range值 以下处理是slave找出对应master seg_range并赋予值 供主从对应排序处理
+                ejector_id = inst.as_receiver.first().ejector_id
+                index = ejector_id_to_index.get(ejector_id)
+                if index is not None:
+                    seg_range = cluster.storages[index].nosqlstoragesetdtl_set.all()[0].seg_range
+                else:
+                    seg_range = "-1:-1"
+            except Exception:
+                # 如果无法找到seg_range，则默认为-1:-1。有可能实例处于restoring状态(比如集群容量变更时)
+                seg_range = "-1:-1"
+
+            remote_infos[inst.instance_role].append({**inst.simple_desc, "seg_range": seg_range})
+
+        remote_infos[InstanceRole.REDIS_MASTER.value].sort(key=lambda x: int(x.get("seg_range", -1).split("-")[0]))
+        remote_infos[InstanceRole.REDIS_SLAVE.value].sort(key=lambda x: int(x.get("seg_range", -1).split("-")[0]))
+        machine_list = list(
+            set(
+                [
+                    inst["bk_host_id"]
+                    for inst in [
+                        *remote_infos[InstanceRole.REDIS_MASTER.value],
+                        *remote_infos[InstanceRole.REDIS_SLAVE.value],
+                    ]
+                ]
+            )
+        )
         machine_pair_cnt = len(machine_list) / 2
 
         # 补充集群的规格和容量信息
@@ -163,16 +198,16 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
             "cluster_capacity": cluster_capacity,
             "dns_to_clb": dns_to_clb,
             "proxy": [m.simple_desc for m in cluster.proxies],
-            "redis_master": redis_master,
-            "redis_slave": redis_slave,
-            "cluster_shard_num": len(redis_master),
+            "redis_master": remote_infos[InstanceRole.REDIS_MASTER.value],
+            "redis_slave": remote_infos[InstanceRole.REDIS_SLAVE.value],
+            "cluster_shard_num": len(remote_infos[InstanceRole.REDIS_MASTER.value]),
             "machine_pair_cnt": machine_pair_cnt,
             "module_names": module_names,
         }
         cluster_info = super()._to_cluster_representation(
             cluster,
             cluster_entry,
-            db_module_names_map,
+            db_module_config_map,
             cluster_entry_map,
             cluster_operate_records_map,
             cloud_info,

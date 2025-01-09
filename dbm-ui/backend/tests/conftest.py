@@ -159,6 +159,7 @@ def init_storage_instance():
         machine=machine,
         bk_biz_id=constant.BK_BIZ_ID,
         name=constant.INSTANCE_NAME,
+        cluster_type=ClusterType.TenDBHA.value,
     )
     storage_instance.cluster.add(cluster)
     yield storage_instance
@@ -181,6 +182,7 @@ def init_proxy_instance():
         machine=machine,
         bk_biz_id=constant.BK_BIZ_ID,
         name=constant.INSTANCE_NAME,
+        cluster_type=ClusterType.TenDBHA.value,
     )
     proxy_instance.cluster.add(cluster)
     yield proxy_instance

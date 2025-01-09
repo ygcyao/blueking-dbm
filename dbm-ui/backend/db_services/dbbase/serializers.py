@@ -17,6 +17,7 @@ from backend.components import CCApi
 from backend.configuration.constants import DBType
 from backend.db_dirty.models import DirtyMachine
 from backend.db_meta.enums import ClusterPhase, ClusterType
+from backend.db_meta.models import Cluster
 from backend.db_services.dbbase.constants import ResourceType
 from backend.db_services.dbbase.resources.serializers import ListClusterEntriesSLZ, ListResourceSLZ
 from backend.db_services.ipchooser.query.resource import ResourceQueryHelper
@@ -211,3 +212,25 @@ class QueryClusterCapSerializer(serializers.Serializer):
 class QueryClusterCapResponseSerializer(serializers.Serializer):
     class Meta:
         swagger_schema_fields = {"example": {"cluster1": {"used": 1, "total": 2, "in_use": 50}}}
+
+
+class UpdateClusterAliasSerializer(serializers.Serializer):
+    bk_biz_id = serializers.IntegerField(help_text=_("业务ID"))
+    cluster_id = serializers.IntegerField(help_text=_("集群ID"))
+    new_alias = serializers.CharField(help_text=_("新集群别名"))
+
+    def validate(self, attrs):
+        bk_biz_id = attrs.get("bk_biz_id")
+        cluster_id = attrs.get("cluster_id")
+        new_alias = attrs.get("new_alias")
+
+        try:
+            cluster = Cluster.objects.get(bk_biz_id=bk_biz_id, id=cluster_id)
+        except Cluster.DoesNotExist:
+            raise serializers.ValidationError(_("Cluster with the given ID does not exist."))
+
+        # 验证新别名不能与原集群名相同
+        if cluster.alias == new_alias:
+            raise serializers.ValidationError(_("The new alias cannot be the same as the current alias."))
+
+        return attrs

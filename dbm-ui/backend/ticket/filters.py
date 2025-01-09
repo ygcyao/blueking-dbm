@@ -24,6 +24,7 @@ class TicketListFilter(filters.FilterSet):
     cluster = filters.CharFilter(field_name="cluster", method="filter_cluster", label=_("集群域名"))
     todo = filters.CharFilter(field_name="todo", method="filter_todo", label=_("代办状态"))
     ordering = filters.CharFilter(field_name="ordering", method="order_ticket", label=_("排序字段"))
+    is_assist = filters.BooleanFilter(field_name="is_assist", method="filter_is_assist", label=_("是否协助"))
 
     class Meta:
         model = Ticket
@@ -47,9 +48,19 @@ class TicketListFilter(filters.FilterSet):
     def filter_todo(self, queryset, name, value):
         user = self.request.user.username
         if value == "running":
-            todo_filter = Q(todo_of_ticket__operators__contains=user, todo_of_ticket__status__in=TODO_RUNNING_STATUS)
+            todo_filter = Q(
+                Q(todo_of_ticket__operators__contains=user) | Q(todo_of_ticket__helpers__contains=user),
+                todo_of_ticket__status__in=TODO_RUNNING_STATUS,
+            )
         else:
             todo_filter = Q(todo_of_ticket__done_by=user)
+        return queryset.filter(todo_filter).distinct()
+
+    def filter_is_assist(self, queryset, name, value):
+        user = self.request.user.username
+        # 根据 value 的值选择不同的字段
+        field = "helpers" if value else "operators"
+        todo_filter = Q(**{f"todo_of_ticket__{field}__contains": user}, todo_of_ticket__status__in=TODO_RUNNING_STATUS)
         return queryset.filter(todo_filter).distinct()
 
     def filter_status(self, queryset, name, value):

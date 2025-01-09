@@ -63,7 +63,7 @@ class TodoActor:
             return
         # 允许超级用户和操作人确认
         is_superuser = User.objects.get(username=username).is_superuser and self.allow_superuser_process
-        if not is_superuser and username not in self.todo.operators:
+        if not is_superuser and username not in self.todo.operators + self.todo.helpers:
             raise TodoWrongOperatorException(_("{}不在处理人: {}中，无法处理").format(username, self.todo.operators))
 
         # 执行确认操作
