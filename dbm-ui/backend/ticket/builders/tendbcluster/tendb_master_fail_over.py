@@ -14,7 +14,7 @@ from rest_framework import serializers
 
 from backend.flow.engine.controller.spider import SpiderController
 from backend.ticket import builders
-from backend.ticket.builders.tendbcluster.base import BaseTendbTicketFlowBuilder
+from backend.ticket.builders.tendbcluster.base import BaseTendbTicketFlowBuilder, TendbBaseOperateDetailSerializer
 from backend.ticket.builders.tendbcluster.tendb_master_slave_switch import TendbMasterSlaveSwitchDetailSerializer
 from backend.ticket.constants import TicketType
 
@@ -24,6 +24,8 @@ class TendbMasterFailOverDetailSerializer(TendbMasterSlaveSwitchDetailSerializer
     serializers.BooleanField(help_text=_("是否检测数据同步延时情况"))
 
     def validate(self, attrs):
+        # 校验集群是否可用，集群类型为tendbcluster
+        super(TendbBaseOperateDetailSerializer, self).validate_cluster_can_access(attrs)
         if not attrs["force"]:
             raise serializers.ValidationError(_("主故障切换场景需要强制执行"))
 

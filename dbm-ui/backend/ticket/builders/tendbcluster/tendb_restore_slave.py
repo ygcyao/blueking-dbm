@@ -21,12 +21,12 @@ from backend.ticket import builders
 from backend.ticket.builders.common.base import BaseOperateResourceParamBuilder, HostInfoSerializer
 from backend.ticket.builders.common.constants import MySQLBackupSource
 from backend.ticket.builders.mysql.mysql_restore_slave import MysqlRestoreSlaveDetailSerializer
-from backend.ticket.builders.tendbcluster.base import BaseTendbTicketFlowBuilder
+from backend.ticket.builders.tendbcluster.base import BaseTendbTicketFlowBuilder, TendbBaseOperateDetailSerializer
 from backend.ticket.constants import TicketType
 from backend.utils.basic import get_target_items_from_details
 
 
-class TendbClusterRestoreSlaveDetailSerializer(MysqlRestoreSlaveDetailSerializer):
+class TendbClusterRestoreSlaveDetailSerializer(MysqlRestoreSlaveDetailSerializer, TendbBaseOperateDetailSerializer):
     class RestoreInfoSerializer(serializers.Serializer):
         old_slave = HostInfoSerializer(help_text=_("旧从库 IP"))
         new_slave = HostInfoSerializer(help_text=_("新从库 IP"), required=False)
@@ -41,7 +41,7 @@ class TendbClusterRestoreSlaveDetailSerializer(MysqlRestoreSlaveDetailSerializer
 
     def validate(self, attrs):
         # 校验集群是否可用，集群类型为tendbcluster
-        super(MysqlRestoreSlaveDetailSerializer, self).validate_cluster_can_access(attrs)
+        super(TendbBaseOperateDetailSerializer, self).validate_cluster_can_access(attrs)
         super(MysqlRestoreSlaveDetailSerializer, self).validated_cluster_type(attrs, ClusterType.TenDBCluster)
         # 校验新机器的云区域与集群一致
         if attrs["ip_source"] == IpSource.MANUAL_INPUT:
