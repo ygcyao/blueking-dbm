@@ -60,3 +60,11 @@ class DBAdministrator(models.Model):
             if db_type == admin["db_type"]:
                 return admin["users"] or DEFAULT_DB_ADMINISTRATORS
         return DEFAULT_DB_ADMINISTRATORS
+
+    @classmethod
+    def get_dba_for_db_type(cls, bk_biz_id: int, db_type: str) -> List[str]:
+        """获取主dba、备dba、二线dba人员"""
+        dba_list = cls.list_biz_admins(bk_biz_id)
+        dba_content = next((dba for dba in dba_list if dba["db_type"] == db_type), {"users": []})
+        users = dba_content.get("users", [])
+        return users[:1], users[1:2], users[2:]

@@ -31,31 +31,44 @@ class TodoManager(models.Manager):
     def get_operators(self, todo_type, ticket, operators):
         # 获得提单人，dba，业务协助人. TODO: 后续还会细分主、备、二线DBA，以及明确区分协助人角色
         creator = [ticket.creator]
-        dba = DBAdministrator.get_biz_db_type_admins(ticket.bk_biz_id, ticket.group)
+        # dba = DBAdministrator.get_biz_db_type_admins(ticket.bk_biz_id, ticket.group)
+        dba, second_dba, other_dba = DBAdministrator.get_dba_for_db_type(ticket.bk_biz_id, ticket.group)
         biz_helpers = BizSettings.get_assistance(ticket.bk_biz_id)
 
         # 构造单据状态与处理人之间的对应关系
         # - 审批中：提单人可撤销，dba可处理，
         #   考虑某些单据审批人是特定配置(数据导出 -- 运维审批)，所以从ItsmBuilder获得审批人
-        # - 待执行：提单人 + 单据协助人
-        # - 待继续：dba + 提单人 + 单据协助人
-        # - 待补货：dba + 提单人 + 单据协助人
-        # - 已失败：dba + 提单人 + 单据协助人
+        # - 待执行：operators[提单人] + helpers[单据协助人]
+        # - 待继续：operators[提单人 + dba] + helpers[单据协助人 + second_dba + other_dba]
+        # - 待补货：operators[提单人 + dba] + helpers[单据协助人 + second_dba + other_dba]
+        # - 已失败：operators[提单人 + dba] + helpers[单据协助人 + second_dba + other_dba]
         itsm_builder = BuilderFactory.get_builder_cls(ticket.ticket_type).itsm_flow_builder(ticket)
+        itsm_operators = itsm_builder.get_approvers().split(",")
         todo_operators_map = {
-            TodoType.ITSM: itsm_builder.get_approvers().split(","),
-            TodoType.APPROVE: creator + biz_helpers,
-            TodoType.INNER_APPROVE: dba + creator + biz_helpers,
-            TodoType.RESOURCE_REPLENISH: dba + creator + biz_helpers,
-            TodoType.INNER_FAILED: dba + creator + biz_helpers,
+            TodoType.ITSM: itsm_operators[:1],
+            TodoType.APPROVE: creator,
+            TodoType.INNER_APPROVE: creator + dba,
+            TodoType.RESOURCE_REPLENISH: creator + dba,
+            TodoType.INNER_FAILED: creator + dba,
+        }
+        todo_helpers_map = {
+            TodoType.ITSM: itsm_operators[1:],
+            TodoType.APPROVE: biz_helpers,
+            TodoType.INNER_APPROVE: biz_helpers + second_dba + other_dba,
+            TodoType.RESOURCE_REPLENISH: biz_helpers + second_dba + other_dba,
+            TodoType.INNER_FAILED: biz_helpers + second_dba + other_dba,
         }
         # 按照顺序去重
         operators = list(dict.fromkeys(operators + todo_operators_map.get(todo_type, [])))
-        return operators
+        helpers = [item for item in todo_helpers_map.get(todo_type, []) if item not in operators]
+        return creator, biz_helpers, helpers, operators
 
     def create(self, **kwargs):
-        operators = self.get_operators(kwargs["type"], kwargs["ticket"], kwargs.get("operators", []))
+        creator, biz_helpers, helpers, operators = self.get_operators(
+            kwargs["type"], kwargs["ticket"], kwargs.get("operators", [])
+        )
         kwargs["operators"] = operators
+        kwargs["helpers"] = helpers
         todo = super().create(**kwargs)
         return todo
 
@@ -69,6 +82,7 @@ class Todo(AuditedModel):
     flow = models.ForeignKey("Flow", help_text=_("关联流程任务"), related_name="todo_of_flow", on_delete=models.CASCADE)
     ticket = models.ForeignKey("Ticket", help_text=_("关联工单"), related_name="todo_of_ticket", on_delete=models.CASCADE)
     operators = models.JSONField(_("待办人"), default=list)
+    helpers = models.JSONField(_("协助人"), default=list)
     type = models.CharField(
         _("待办类型"),
         choices=TodoType.get_choices(),

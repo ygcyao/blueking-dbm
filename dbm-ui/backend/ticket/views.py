@@ -154,8 +154,12 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
             Q(group=manage.db_type) & Q(bk_biz_id=manage.bk_biz_id) if manage.bk_biz_id else Q(group=manage.db_type)
             for manage in DBAdministrator.objects.filter(users__contains=user.username)
         ]
-        ticket_filter = Q(creator=user.username) | reduce(operator.or_, manage_filters or [Q()])
-        return Ticket.objects.filter(ticket_filter)
+        # 除了user管理的单据合集，处理人及协助人也能管理自己的单据
+        todo_filters = Q(
+            Q(todo_of_ticket__operators__contains=user.username) | Q(todo_of_ticket__helpers__contains=user.username)
+        )
+        ticket_filter = Q(creator=user.username) | todo_filters | reduce(operator.or_, manage_filters or [Q()])
+        return Ticket.objects.filter(ticket_filter).prefetch_related("todo_of_ticket")
 
     def filter_queryset(self, queryset):
         """filter_class可能导致预取的todo失效，这里重新取一次"""
@@ -446,29 +450,43 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
         """
         user = request.user.username
         tickets = self._get_self_manage_tickets(request.user)
-        count_map = {count_type: 0 for count_type in CountType.get_values()}
+        exclude_values = {"MY_APPROVE", "SELF_MANAGE", "DONE"}
 
-        # 我负责的业务
-        count_map[CountType.SELF_MANAGE] = tickets.count()
-        # 我的申请
-        count_map[CountType.MY_APPROVE] = tickets.filter(creator=user).count()
-        # 我的代办
-        todo_status = (
-            tickets.filter(
-                status__in=TICKET_TODO_STATUS_SET,
-                todo_of_ticket__operators__contains=user,
-                todo_of_ticket__status__in=TODO_RUNNING_STATUS,
+        # 初始化 count_map
+        def initialize_count_map():
+            return {count_type: 0 for count_type in CountType.get_values() if count_type not in exclude_values}
+
+        results = {}
+
+        # 通用的函数来计算待办和协助状态
+        def calculate_status_count(field_name, relation_name):
+            status_counts = (
+                tickets.filter(
+                    status__in=TICKET_TODO_STATUS_SET,
+                    **{f"{relation_name}__{field_name}__contains": user},
+                    **{f"{relation_name}__status__in": TODO_RUNNING_STATUS},
+                )
+                .distinct()
+                .values_list("status", flat=True)
             )
-            .distinct()
-            .values_list("status", flat=True)
-        )
-        for sts, count in Counter(todo_status).items():
-            sts = CountType.INNER_TODO.value if sts == "RUNNING" else sts
-            count_map[sts] = count
-        # 我的已办
-        count_map[CountType.DONE] = tickets.filter(todo_of_ticket__done_by=user).count()
+            count_map = initialize_count_map()
+            for sts, count in Counter(status_counts).items():
+                sts = CountType.INNER_TODO.value if sts == "RUNNING" else sts
+                count_map[sts] = count
+            return count_map
 
-        return Response(count_map)
+        # 计算我的代办
+        results["Pending"] = calculate_status_count("operators", "todo_of_ticket")
+        # 计算我的协助
+        results["to_help"] = calculate_status_count("helpers", "todo_of_ticket")
+        # 我负责的业务
+        results[CountType.SELF_MANAGE] = tickets.count()
+        # 我的申请
+        results[CountType.MY_APPROVE] = tickets.filter(creator=user).count()
+        # 我的已办
+        results[CountType.DONE] = tickets.filter(todo_of_ticket__done_by=user).count()
+
+        return Response(results)
 
     @common_swagger_auto_schema(
         operation_summary=_("查询集群变更单据事件"),

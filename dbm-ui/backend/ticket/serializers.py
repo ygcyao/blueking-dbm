@@ -97,6 +97,7 @@ class TicketSerializer(AuditedSerializer, serializers.ModelSerializer):
     details = TicketDetailsSerializer(help_text=_("单据详情"))
     # 额外补充展示字段
     todo_operators = serializers.SerializerMethodField(help_text=_("处理人列表"))
+    todo_helpers = serializers.SerializerMethodField(help_text=_("协助人列表"))
     status = serializers.SerializerMethodField(help_text=_("状态"), read_only=True)
     status_display = serializers.SerializerMethodField(help_text=_("状态名称"))
     ticket_type_display = serializers.SerializerMethodField(help_text=_("单据类型名称"))
@@ -126,8 +127,12 @@ class TicketSerializer(AuditedSerializer, serializers.ModelSerializer):
         obj.running_todos = [todo for todo in obj.todo_of_ticket.all() if todo.status == TodoStatus.TODO]
         return obj.running_todos[0].operators if obj.running_todos else []
 
+    def get_todo_helpers(self, obj):
+        obj.running_todo_helpers = [todo for todo in obj.todo_of_ticket.all() if todo.status == TodoStatus.TODO]
+        return obj.running_todo_helpers[0].helpers if obj.running_todo_helpers else []
+
     def get_status(self, obj):
-        if obj.status == TicketStatus.RUNNING and obj.running_todos:
+        if obj.status == TicketStatus.RUNNING and (obj.running_todos or obj.running_todo_helpers):
             obj.status = TicketStatus.INNER_TODO
         return obj.status
 
@@ -231,7 +236,6 @@ class TodoSerializer(serializers.ModelSerializer):
     单据序列化
     """
 
-    operators = serializers.JSONField(help_text=_("待办人列表"))
     cost_time = serializers.SerializerMethodField(help_text=_("耗时"))
 
     def get_cost_time(self, obj):

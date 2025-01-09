@@ -41,7 +41,6 @@ from backend.ticket.constants import (
 from backend.ticket.exceptions import TicketFlowsConfigException
 from backend.ticket.flow_manager.manager import TicketFlowManager
 from backend.ticket.models import Flow, Ticket, TicketFlowsConfig, Todo
-from backend.ticket.serializers import TodoSerializer
 from backend.ticket.todos import BaseTodoContext, TodoActorFactory
 from backend.ticket.todos.itsm_todo import ItsmTodoContext
 
@@ -293,6 +292,7 @@ class TicketHandler:
         @param action 动作
         @param operations: todo列表，每个item包含todo id和params
         """
+        from backend.ticket.serializers import TodoSerializer
 
         results = []
         for operation in operations:
