@@ -149,8 +149,17 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
                 )
             except IndexError:
                 # 异常处理 因nosqlstoragesetdtl的分片数据只有redis为master才有seg_range值 以下处理是slave找出对应master seg_range并赋予值 供主从对应排序处理
-                master = ejector_id__storage_map.get(inst.as_receiver.all()[0].ejector_id)
-                seg_range = master.nosqlstoragesetdtl_set.all()[0].seg_range if master is not None else "-1"
+                receivers = inst.as_receiver.all()
+                # 检查receivers是否为空
+                if receivers:
+                    master = ejector_id__storage_map.get(receivers[0].ejector_id)
+                    seg_range = (
+                        master.nosqlstoragesetdtl_set.all()[0].seg_range
+                        if master.nosqlstoragesetdtl_set.all()
+                        else "-1"
+                    )
+                else:
+                    seg_range = "-1"
             except Exception:
                 # 如果无法找到seg_range，则默认为-1。有可能实例处于restoring状态(比如集群容量变更时)
                 seg_range = "-1"

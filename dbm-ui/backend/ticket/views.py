@@ -476,7 +476,7 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
             return count_map
 
         # 计算我的代办
-        results["Pending"] = calculate_status_count("operators", "todo_of_ticket")
+        results["pending"] = calculate_status_count("operators", "todo_of_ticket")
         # 计算我的协助
         results["to_help"] = calculate_status_count("helpers", "todo_of_ticket")
         # 我负责的业务
