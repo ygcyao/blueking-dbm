@@ -6,7 +6,7 @@ from backend.db_meta.enums import ClusterEntryType
 
 def build_q_for_domain_by_cluster(domains, role=None):
     # 基础查询条件
-    base_query = Q(clusterentry__cluster_entry_type=ClusterEntryType.DNS.value)
+    base_query = Q()
     if role:
         base_query &= Q(clusterentry__role=role)
 
