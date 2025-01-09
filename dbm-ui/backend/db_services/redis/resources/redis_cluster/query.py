@@ -166,12 +166,19 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
 
             remote_infos[inst.instance_role].append({**inst.simple_desc, "seg_range": seg_range})
 
-        remote_infos[InstanceRole.REDIS_MASTER.value].sort(
-            key=lambda x: int(x.get("seg_range", "-1").split("-")[0]) if x.get("seg_range", "-1").split("-")[0] else -1
-        )
-        remote_infos[InstanceRole.REDIS_SLAVE.value].sort(
-            key=lambda x: int(x.get("seg_range", "-1").split("-")[0]) if x.get("seg_range", "-1").split("-")[0] else -1
-        )
+        # 对 master 和 slave 的 seg_range 进行排序
+        for role in [InstanceRole.REDIS_MASTER.value, InstanceRole.REDIS_SLAVE.value]:
+            remote_infos[role].sort(
+                key=lambda x: int(x.get("seg_range", "-1").split("-")[0])
+                if x.get("seg_range", "-1").split("-")[0].isdigit()
+                else -1
+            )
+
+            # 将排序后 seg_range 为 "-1" 的条目置空
+            for item in remote_infos[role]:
+                if item["seg_range"] == "-1":
+                    item["seg_range"] = ""
+
         machine_list = list(
             set(
                 [
