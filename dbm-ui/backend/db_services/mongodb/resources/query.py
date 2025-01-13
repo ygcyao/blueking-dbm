@@ -14,7 +14,7 @@ from django.db.models import CharField, ExpressionWrapper, F, Prefetch, Q, Query
 from django.db.models.functions import Concat
 from django.utils.translation import ugettext_lazy as _
 
-from backend.db_meta.enums import ClusterType, MachineType
+from backend.db_meta.enums import ClusterType, InstanceRole, MachineType
 from backend.db_meta.models import AppCache, NosqlStorageSetDtl, StorageInstanceTuple
 from backend.db_meta.models.cluster import Cluster
 from backend.db_meta.models.instance import ProxyInstance, StorageInstance
@@ -31,6 +31,7 @@ class MongoDBListRetrieveResource(query.ListRetrieveResource):
     """查看 mysql dbha 架构的资源"""
 
     cluster_types = [ClusterType.MongoReplicaSet, ClusterType.MongoShardedCluster]
+    storage_spec_role = InstanceRole.MONGO_M1
     fields = [
         {"name": _("主域名"), "key": "domain"},
         {"name": _("IP"), "key": "ip"},

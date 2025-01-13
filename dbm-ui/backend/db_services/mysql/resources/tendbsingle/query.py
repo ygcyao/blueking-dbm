@@ -14,7 +14,7 @@ from django.db.models import F
 from django.utils.translation import ugettext_lazy as _
 
 from backend.db_meta.api.cluster.tendbsingle.detail import scan_cluster
-from backend.db_meta.enums import InstanceInnerRole
+from backend.db_meta.enums import InstanceInnerRole, InstanceRole
 from backend.db_meta.enums.cluster_type import ClusterType
 from backend.db_meta.models import AppCache, StorageInstance
 from backend.db_meta.models.cluster import Cluster
@@ -27,6 +27,7 @@ class ListRetrieveResource(query.ListRetrieveResource):
     """查看 mysql 单点部署的资源"""
 
     cluster_types = [ClusterType.TenDBSingle]
+    storage_spec_role = InstanceRole.ORPHAN
 
     fields = [
         {"name": _("集群名"), "key": "cluster_name"},

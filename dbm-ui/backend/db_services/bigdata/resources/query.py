@@ -12,17 +12,15 @@ from collections import defaultdict
 from operator import itemgetter
 from typing import Any, Dict, List
 
-from django.db.models import Count, F, Q, QuerySet
+from django.db.models import Count, F, Q
 from django.forms import model_to_dict
 from django.utils.translation import ugettext_lazy as _
 
-from backend.db_meta.enums.spec import SpecClusterType
-from backend.db_meta.models import AppCache, Spec
+from backend.db_meta.models import AppCache
 from backend.db_meta.models.cluster import Cluster
 from backend.db_meta.models.instance import StorageInstance
 from backend.db_proxy.models import ClusterExtension
 from backend.db_services.dbbase.resources import query
-from backend.db_services.dbbase.resources.query import ResourceList
 from backend.db_services.ipchooser.query.resource import ResourceQueryHelper
 from backend.ticket.constants import TICKET_RUNNING_STATUS_SET
 from backend.ticket.models import InstanceOperateRecord
@@ -271,27 +269,3 @@ class BigDataBaseListRetrieveResource(query.ListRetrieveResource):
         # 对创建时间或者实例数量进行排序
 
         return query.ResourceList(count=count, data=paginated_group_list)
-
-    @classmethod
-    def _filter_cluster_hook(
-        cls,
-        bk_biz_id,
-        cluster_queryset: QuerySet,
-        proxy_queryset: QuerySet,
-        storage_queryset: QuerySet,
-        limit: int,
-        offset: int,
-        **kwargs,
-    ) -> ResourceList:
-        # 预取remote的spec
-        remote_spec_map = {spec.spec_id: spec for spec in Spec.objects.filter(spec_cluster_type=SpecClusterType.Doris)}
-        return super()._filter_cluster_hook(
-            bk_biz_id,
-            cluster_queryset,
-            proxy_queryset,
-            storage_queryset,
-            limit,
-            offset,
-            remote_spec_map=remote_spec_map,
-            **kwargs,
-        )

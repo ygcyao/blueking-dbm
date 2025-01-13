@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 from django.utils.translation import ugettext_lazy as _
 
 from backend.db_meta.api.cluster.sqlserversingle.detail import scan_cluster
-from backend.db_meta.enums import InstanceInnerRole
+from backend.db_meta.enums import InstanceInnerRole, InstanceRole
 from backend.db_meta.enums.cluster_type import ClusterType
 from backend.db_meta.models import AppCache
 from backend.db_meta.models.cluster import Cluster
@@ -26,6 +26,7 @@ class ListRetrieveResource(SqlserverListRetrieveResource):
     """查看 sqlserver ha 架构的资源"""
 
     cluster_types = [ClusterType.SqlserverSingle]
+    storage_spec_role = InstanceRole.ORPHAN
 
     fields = [
         {"name": _("集群名"), "key": "cluster_name"},

@@ -13,13 +13,23 @@ from typing import Any, Callable, Dict, List, Tuple, Union
 
 import attr
 from django.db.models import F, Prefetch, Q, QuerySet
+from django.forms import model_to_dict
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
 
 from backend.constants import IP_PORT_DIVIDER
 from backend.db_meta.enums import ClusterEntryType, ClusterType, InstanceRole
 from backend.db_meta.enums.comm import SystemTagEnum
-from backend.db_meta.models import AppCache, Cluster, ClusterEntry, DBModule, Machine, ProxyInstance, StorageInstance
+from backend.db_meta.models import (
+    AppCache,
+    Cluster,
+    ClusterEntry,
+    DBModule,
+    Machine,
+    ProxyInstance,
+    Spec,
+    StorageInstance,
+)
 from backend.db_services.dbbase.instances.handlers import InstanceHandler
 from backend.db_services.dbbase.resources.query_base import (
     build_q_for_domain_by_cluster,
@@ -237,6 +247,7 @@ class BaseListRetrieveResource(CommonQueryResourceMixin):
 
     fields = [{"name": _("业务"), "key": "bk_biz_name"}]
     cluster_types = []
+    storage_spec_role = None
 
     @classmethod
     @abc.abstractmethod
@@ -516,6 +527,12 @@ class ListRetrieveResource(BaseListRetrieveResource):
         # 获取集群统计信息，只需要获取一次
         cluster_stats_map = Cluster.get_cluster_stats(bk_biz_id, cls.cluster_types)
 
+        # 预取remote的spec
+        db_types = set([ClusterType.cluster_type_to_db_type(cluster_type) for cluster_type in cls.cluster_types])
+        kwargs["remote_spec_map"] = {
+            spec.spec_id: spec for spec in Spec.objects.filter(spec_cluster_type__in=db_types)
+        }
+
         for cluster in cluster_list:
             cluster_info = cls._to_cluster_representation(
                 cluster=cluster,
@@ -556,8 +573,18 @@ class ListRetrieveResource(BaseListRetrieveResource):
         @param cluster_entry_map: key 是 cluster.id, value 是当前集群对应的 entry 映射
         @param cluster_operate_records_map: key 是 cluster.id, value 是当前集群对应的 操作记录 映射
         """
+        spec = None
         cluster_entry_map_value = cluster_entry_map.get(cluster.id, {})
         bk_cloud_name = cloud_info.get(str(cluster.bk_cloud_id), {}).get("bk_cloud_name", "")
+
+        # 补充集群规格信息
+        if cls.storage_spec_role is not None:
+            storage_spec = next(
+                (storage for storage in cluster.storages if storage.instance_role == cls.storage_spec_role), None
+            )
+            if storage_spec:
+                spec_id = storage_spec.machine.spec_id
+                spec = kwargs["remote_spec_map"].get(spec_id)
 
         return {
             "id": cluster.id,
@@ -589,6 +616,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
             "updater": cluster.updater,
             "create_at": datetime2str(cluster.create_at),
             "update_at": datetime2str(cluster.update_at),
+            "cluster_spec": model_to_dict(spec) if spec else None,
         }
 
     @classmethod
