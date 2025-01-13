@@ -22,8 +22,7 @@ from backend.db_meta.api.cluster.tendispluscluster.handler import TendisPlusClus
 from backend.db_meta.api.cluster.tendisssd.handler import TendisSSDClusterHandler
 from backend.db_meta.enums import ClusterEntryType, InstanceRole
 from backend.db_meta.enums.cluster_type import ClusterType
-from backend.db_meta.enums.spec import SpecClusterType
-from backend.db_meta.models import AppCache, Machine, Spec
+from backend.db_meta.models import AppCache, Machine
 from backend.db_meta.models.cluster import Cluster
 from backend.db_services.dbbase.resources import query
 from backend.db_services.dbbase.resources.query import ResourceList
@@ -109,8 +108,6 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
         storage_queryset = storage_queryset.prefetch_related(
             "machine", "nosqlstoragesetdtl_set", "as_receiver", "as_ejector"
         )
-        # 预取remote的spec
-        redis_spec_map = {spec.spec_id: spec for spec in Spec.objects.filter(spec_cluster_type=SpecClusterType.Redis)}
         return super()._filter_cluster_hook(
             bk_biz_id,
             cluster_queryset,
@@ -118,7 +115,6 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
             storage_queryset,
             limit,
             offset,
-            redis_spec_map=redis_spec_map,
             **kwargs,
         )
 
@@ -194,10 +190,10 @@ class RedisListRetrieveResource(query.ListRetrieveResource):
 
         # 补充集群的规格和容量信息
         cluster_spec = cluster_capacity = ""
-        redis_spec_map = kwargs["redis_spec_map"]
+        remote_spec_map = kwargs["remote_spec_map"]
         if machine_list:
             spec_id = cluster.storages[0].machine.spec_id
-            spec = redis_spec_map.get(spec_id)
+            spec = remote_spec_map.get(spec_id)
             cluster_spec = model_to_dict(spec) if spec else {}
             cluster_capacity = spec.capacity * machine_pair_cnt if spec else 0
 

@@ -15,10 +15,9 @@ from django.forms import model_to_dict
 from django.utils.translation import ugettext_lazy as _
 
 from backend.db_meta.api.cluster.tendbha.detail import scan_cluster
-from backend.db_meta.enums import ClusterEntryRole, InstanceInnerRole
+from backend.db_meta.enums import ClusterEntryRole, InstanceInnerRole, InstanceRole
 from backend.db_meta.enums.cluster_type import ClusterType
-from backend.db_meta.enums.spec import SpecClusterType
-from backend.db_meta.models import AppCache, Spec, StorageInstance
+from backend.db_meta.models import AppCache, StorageInstance
 from backend.db_meta.models.cluster import Cluster
 from backend.db_services.dbbase.resources import query
 from backend.db_services.dbbase.resources.query import ResourceList
@@ -31,6 +30,7 @@ class ListRetrieveResource(query.ListRetrieveResource):
     """查看 mysql dbha 架构的资源"""
 
     cluster_types = [ClusterType.TenDBHA]
+    storage_spec_role = InstanceRole.BACKEND_MASTER
 
     fields = [
         {"name": _("集群名"), "key": "cluster_name"},
@@ -102,8 +102,6 @@ class ListRetrieveResource(query.ListRetrieveResource):
     ) -> ResourceList:
         # 提前预取storage的tuple
         storage_queryset = storage_queryset.prefetch_related("as_receiver__ejector")
-        # 预取remote的spec
-        remote_spec_map = {spec.spec_id: spec for spec in Spec.objects.filter(spec_cluster_type=SpecClusterType.MySQL)}
         return super()._filter_cluster_hook(
             bk_biz_id,
             cluster_queryset,
@@ -111,7 +109,6 @@ class ListRetrieveResource(query.ListRetrieveResource):
             storage_queryset,
             limit,
             offset,
-            remote_spec_map=remote_spec_map,
             **kwargs,
         )
 

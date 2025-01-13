@@ -17,11 +17,10 @@ from django.utils.translation import ugettext_lazy as _
 
 from backend.configuration.constants import DBType
 from backend.db_meta.api.cluster.tendbcluster.detail import scan_cluster
-from backend.db_meta.enums import InstanceInnerRole, TenDBClusterSpiderRole
+from backend.db_meta.enums import InstanceInnerRole, InstanceRole, TenDBClusterSpiderRole
 from backend.db_meta.enums.cluster_type import ClusterType
-from backend.db_meta.enums.spec import SpecClusterType
 from backend.db_meta.exceptions import DBMetaException
-from backend.db_meta.models import AppCache, Spec
+from backend.db_meta.models import AppCache
 from backend.db_meta.models.cluster import Cluster
 from backend.db_meta.models.instance import ProxyInstance, StorageInstance
 from backend.db_services.dbbase.resources import query
@@ -36,6 +35,7 @@ class ListRetrieveResource(query.ListRetrieveResource):
 
     cluster_type = ClusterType.TenDBCluster
     cluster_types = [ClusterType.TenDBCluster]
+    storage_spec_role = InstanceRole.REMOTE_MASTER
 
     fields = [
         {"name": _("集群名"), "key": "cluster_name"},
@@ -85,10 +85,6 @@ class ListRetrieveResource(query.ListRetrieveResource):
             "as_ejector__tendbclusterstorageset", "as_receiver__tendbclusterstorageset"
         )
         proxy_queryset = proxy_queryset.prefetch_related("tendbclusterspiderext")
-        # 预取remote的spec
-        remote_spec_map = {
-            spec.spec_id: spec for spec in Spec.objects.filter(spec_cluster_type=SpecClusterType.TenDBCluster)
-        }
         return super()._filter_cluster_hook(
             bk_biz_id,
             cluster_queryset,
@@ -96,7 +92,6 @@ class ListRetrieveResource(query.ListRetrieveResource):
             storage_queryset,
             limit,
             offset,
-            remote_spec_map=remote_spec_map,
             **kwargs,
         )
 
