@@ -8,13 +8,10 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
-import operator
 from collections import Counter
-from functools import reduce
 from typing import Dict, List
 
 from django.db import transaction
-from django.db.models import Q
 from django.utils.translation import ugettext_lazy as _
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import serializers, status
@@ -22,12 +19,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from backend import env
 from backend.bk_web import viewsets
 from backend.bk_web.pagination import AuditedLimitOffsetPagination
 from backend.bk_web.swagger import PaginatedResponseSwaggerAutoSchema, common_swagger_auto_schema
 from backend.configuration.constants import DBType
-from backend.configuration.models import DBAdministrator
 from backend.db_services.ipchooser.query.resource import ResourceQueryHelper
 from backend.iam_app.dataclass import ResourceEnum
 from backend.iam_app.dataclass.actions import ActionEnum
@@ -144,46 +139,10 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
         # 需要豁免的接口方法与名字
         return {"post": [cls.callback.__name__], "put": [], "get": [], "delete": []}
 
-    @classmethod
-    def _get_self_manage_tickets(cls, user):
-        # 超级管理员返回所有单据
-        if user.username in env.ADMIN_USERS or user.is_superuser:
-            return Ticket.objects.all()
-        # 获取user管理的单据合集
-        manage_filters = [
-            Q(group=manage.db_type) & Q(bk_biz_id=manage.bk_biz_id) if manage.bk_biz_id else Q(group=manage.db_type)
-            for manage in DBAdministrator.objects.filter(users__contains=user.username)
-        ]
-        # 除了user管理的单据合集，处理人及协助人也能管理自己的单据
-        todo_filters = Q(
-            Q(todo_of_ticket__operators__contains=user.username) | Q(todo_of_ticket__helpers__contains=user.username)
-        )
-        ticket_filter = Q(creator=user.username) | todo_filters | reduce(operator.or_, manage_filters or [Q()])
-        return Ticket.objects.filter(ticket_filter).prefetch_related("todo_of_ticket")
-
     def filter_queryset(self, queryset):
         """filter_class可能导致预取的todo失效，这里重新取一次"""
         queryset = super().filter_queryset(queryset)
         return queryset.prefetch_related("todo_of_ticket")
-
-    def get_queryset(self):
-        """
-        单据queryset规则--针对list：
-        1. self_manage=0 只返回自己管理的单据
-        2. self_manage=1，则返回自己管理组件的单据，如果是管理员则返回所有单据
-        """
-        if self.action != "list" or "self_manage" not in self.request.query_params:
-            return super().get_queryset()
-
-        username = self.request.user.username
-        self_manage = int(self.request.query_params["self_manage"])
-        # 只返回自己创建的单据
-        if self_manage == 0:
-            qs = Ticket.objects.filter(creator=username)
-        # 返回自己管理的组件单据
-        else:
-            qs = self._get_self_manage_tickets(self.request.user)
-        return qs
 
     def get_serializer_context(self):
         context = super(TicketViewSet, self).get_serializer_context()
@@ -278,9 +237,6 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
         resp = super().list(request, *args, **kwargs)
         # 补充单据关联信息
         resp.data["results"] = TicketHandler.add_related_object(resp.data["results"])
-        # 如果是查询自身单据(self_manage)，则不进行鉴权
-        skip_iam = "self_manage" in request.query_params
-        resp.data["results"] = [{"skip_iam": skip_iam, **t} for t in resp.data["results"]]
         return resp
 
     @common_swagger_auto_schema(
@@ -444,12 +400,11 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
         """
         获取单据的数量，目前需要获取
         - 我的申请
-        - (代办)待我审批、待我确认，待我补货
+        - (代办：待我处理、待我协助)待我审批、待我确认，待我补货
         - 我的已办
-        - 我负责的业务
         """
         user = request.user.username
-        tickets = self._get_self_manage_tickets(request.user)
+        tickets = self.get_queryset()
         exclude_values = {"MY_APPROVE", "SELF_MANAGE", "DONE"}
 
         # 初始化 count_map
@@ -479,12 +434,10 @@ class TicketViewSet(viewsets.AuditedModelViewSet):
         results["pending"] = calculate_status_count("operators", "todo_of_ticket")
         # 计算我的协助
         results["to_help"] = calculate_status_count("helpers", "todo_of_ticket")
-        # 我负责的业务
-        results[CountType.SELF_MANAGE] = tickets.count()
         # 我的申请
         results[CountType.MY_APPROVE] = tickets.filter(creator=user).count()
         # 我的已办
-        results[CountType.DONE] = tickets.filter(todo_of_ticket__done_by=user).count()
+        results[CountType.DONE] = tickets.filter(todo_of_ticket__done_by=user).distinct().count()
 
         return Response(results)
 
