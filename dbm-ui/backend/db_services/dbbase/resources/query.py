@@ -735,6 +735,9 @@ class ListRetrieveResource(BaseListRetrieveResource):
             "machine__machine_type",
             "machine__bk_sub_zone",
             "machine__bk_sub_zone_id",
+            "machine__bk_os_name",
+            "machine__bk_rack_id",
+            "machine__bk_svr_device_cls_name",
         ]
         # 获取storage实例的查询集
         storage_queryset = (
@@ -790,6 +793,9 @@ class ListRetrieveResource(BaseListRetrieveResource):
             "instance_address": f"{instance['machine__ip']}{IP_PORT_DIVIDER}{instance['port']}",
             "bk_host_id": instance["machine__bk_host_id"],
             "machine_type": instance["machine__machine_type"],
+            "bk_os_name": instance["machine__bk_os_name"],
+            "bk_rack_id": instance["machine__bk_rack_id"],
+            "bk_svr_device_cls_name": instance["machine__bk_svr_device_cls_name"],
             "role": instance["role"],
             "master_domain": cluster_entry_map.get(instance["cluster__id"], {}).get("master_domain", ""),
             "slave_domain": cluster_entry_map.get(instance["cluster__id"], {}).get("slave_domain", ""),
