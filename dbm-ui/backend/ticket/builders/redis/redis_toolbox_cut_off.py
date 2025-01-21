@@ -13,6 +13,7 @@ import itertools
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
 
+from backend.configuration.constants import AffinityEnum
 from backend.db_meta.enums import InstanceRole
 from backend.db_meta.models import Cluster, StorageInstance
 from backend.db_services.dbbase.constants import IpSource
@@ -118,12 +119,23 @@ class RedisClusterCutOffFlowBuilder(BaseRedisTicketFlowBuilder):
                     continue
 
                 if role in [InstanceRole.REDIS_MASTER.value, InstanceRole.REDIS_PROXY.value]:
+                    # 同城同园区集群的园区id处理
+                    bk_sub_zone_id = None
+                    if cluster.disaster_tolerance_level in [
+                        AffinityEnum.SAME_SUBZONE,
+                        AffinityEnum.SAME_SUBZONE_CROSS_SWTICH,
+                    ]:
+                        bk_sub_zone_id = cluster.storageinstance_set.first().machine.bk_sub_zone_id
+
                     # 如果替换角色是master，则是master/slave成对替换
                     resource_role = "backend_group" if role == InstanceRole.REDIS_MASTER.value else role
                     resource_spec[resource_role] = {
                         "spec_id": info[role][0]["spec_id"],
                         "count": len(role_hosts),
-                        "location_spec": {"city": cluster.region, "sub_zone_ids": []},
+                        "location_spec": {
+                            "city": cluster.region,
+                            "sub_zone_ids": [bk_sub_zone_id] if bk_sub_zone_id else [],
+                        },
                         "affinity": cluster.disaster_tolerance_level,
                     }
                     # 如果是proxy，则至少跨两个机房

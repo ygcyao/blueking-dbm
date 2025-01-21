@@ -19,9 +19,9 @@ from django.utils.translation import ugettext as _
 from rest_framework import serializers
 
 from backend import env
-from backend.configuration.constants import SystemSettingsEnum
+from backend.configuration.constants import AffinityEnum, SystemSettingsEnum
 from backend.configuration.models import DBAdministrator, SystemSettings
-from backend.db_meta.models import AppCache, Cluster
+from backend.db_meta.models import AppCache, Cluster, Machine
 from backend.db_services.dbbase.constants import IpSource
 from backend.iam_app.dataclass.actions import ActionEnum
 from backend.ticket.constants import TICKET_EXPIRE_DEFAULT_CONFIG, FlowRetryType, FlowType, TicketType
@@ -243,10 +243,18 @@ class ResourceApplyParamBuilder(CallBackBuilderMixin):
         """
         节点变更的时候，补充亲和性和位置参数
         """
+        bk_sub_zone_id = None
+        # 同城同园区集群的园区id处理
+        if cluster.disaster_tolerance_level in [AffinityEnum.SAME_SUBZONE, AffinityEnum.SAME_SUBZONE_CROSS_SWTICH]:
+            bk_sub_zone_id = cluster.storageinstance_set.first().machine.bk_sub_zone_id
+
         resource_role = roles or resource_spec.keys()
         for role in resource_role:
             resource_spec[role]["affinity"] = cluster.disaster_tolerance_level
-            resource_spec[role]["location_spec"] = {"city": cluster.region, "sub_zone_ids": []}
+            resource_spec[role]["location_spec"] = {
+                "city": cluster.region,
+                "sub_zone_ids": [bk_sub_zone_id] if bk_sub_zone_id else [],
+            }
 
 
 class TicketFlowBuilder:
