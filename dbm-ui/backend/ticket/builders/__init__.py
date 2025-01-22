@@ -244,17 +244,16 @@ class ResourceApplyParamBuilder(CallBackBuilderMixin):
         节点变更的时候，补充亲和性和位置参数
         """
         bk_sub_zone_id = None
-        # 同城同园区集群的园区id处理
+        # 资源申请同城同园区条件：补充园区id, 且需传include_or_exclude=True来指定申请的园区，如不传nclude_or_exclude参数，默认视为包含该园区
         if cluster.disaster_tolerance_level in [AffinityEnum.SAME_SUBZONE, AffinityEnum.SAME_SUBZONE_CROSS_SWTICH]:
             bk_sub_zone_id = cluster.storageinstance_set.first().machine.bk_sub_zone_id
 
         resource_role = roles or resource_spec.keys()
         for role in resource_role:
             resource_spec[role]["affinity"] = cluster.disaster_tolerance_level
-            resource_spec[role]["location_spec"] = {
-                "city": cluster.region,
-                "sub_zone_ids": [bk_sub_zone_id] if bk_sub_zone_id else [],
-            }
+            resource_spec[role]["location_spec"] = {"city": cluster.region, "sub_zone_ids": []}
+            if bk_sub_zone_id:
+                resource_spec[role]["location_spec"].update(sub_zone_ids=[bk_sub_zone_id], include_or_exclude=True)
 
 
 class TicketFlowBuilder:
