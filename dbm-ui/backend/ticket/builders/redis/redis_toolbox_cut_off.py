@@ -155,10 +155,23 @@ class RedisClusterCutOffFlowBuilder(BaseRedisTicketFlowBuilder):
                             "count": 1,
                             "location_spec": {
                                 "city": cluster.region,
-                                "sub_zone_ids": [redis_master.machine.bk_sub_zone_id],
-                                "include_or_exclue": False,
+                                "sub_zone_ids": [],
                             },
+                            "affinity": cluster.disaster_tolerance_level,
                         }
+
+                        if cluster.disaster_tolerance_level == AffinityEnum.CROS_SUBZONE:
+                            resource_spec[f"{role}_{role_host['ip']}"]["location_spec"].update(
+                                sub_zone_ids=[redis_master.machine.bk_sub_zone_id], include_or_exclue=False
+                            )
+
+                        elif cluster.disaster_tolerance_level in [
+                            AffinityEnum.SAME_SUBZONE,
+                            AffinityEnum.SAME_SUBZONE_CROSS_SWTICH,
+                        ]:
+                            resource_spec[f"{role}_{role_host['ip']}"]["location_spec"].update(
+                                sub_zone_ids=[redis_master.machine.bk_sub_zone_id], include_or_exclue=True
+                            )
 
             info["resource_spec"] = resource_spec
 

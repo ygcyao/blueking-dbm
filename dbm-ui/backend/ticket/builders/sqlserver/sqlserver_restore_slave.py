@@ -8,10 +8,13 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 specific language governing permissions and limitations under the License.
 """
+import itertools
+
 from django.db.models import F, Prefetch
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
+from backend.configuration.constants import AffinityEnum
 from backend.db_meta.enums import ClusterType
 from backend.db_meta.models import Cluster, Machine
 from backend.db_services.dbbase.constants import IpSource
@@ -91,15 +94,31 @@ class SQLServerRestoreSlaveResourceParamBuilder(SQLServerBaseOperateResourcePara
                 bk_host_id__in=master_hosts
             )
         }
+        cluster_ids = list(itertools.chain(*[infos["cluster_ids"] for infos in self.ticket.details["infos"]]))
+        id__cluster = {cluster.id: cluster for cluster in Cluster.objects.filter(id__in=cluster_ids)}
+
         for info in self.ticket.details["infos"]:
+            cluster = id__cluster[info["cluster_ids"][0]]
             # 申请新的slave, 需要和当前集群中的master处于不同机房;
             master_machine = id__machine[formatted_dict[info["old_slave_host"]["bk_host_id"]]]
             # TODO: 还有补充操作系统
             info["resource_spec"]["sqlserver_ha"]["location_spec"] = {
                 "city": master_machine.bk_city.logical_city.name,
-                "sub_zone_ids": [master_machine.bk_sub_zone_id],
-                "include_or_exclue": False,
+                "sub_zone_ids": [],
             }
+            info["resource_spec"]["sqlserver_ha"].update(affinity=cluster.disaster_tolerance_level)
+            if cluster.disaster_tolerance_level == AffinityEnum.CROS_SUBZONE:
+                info["resource_spec"]["sqlserver_ha"]["location_spec"].update(
+                    sub_zone_ids=[master_machine.bk_sub_zone_id], include_or_exclue=False
+                )
+
+            elif cluster.disaster_tolerance_level in [
+                AffinityEnum.SAME_SUBZONE,
+                AffinityEnum.SAME_SUBZONE_CROSS_SWTICH,
+            ]:
+                info["resource_spec"]["sqlserver_ha"]["location_spec"].update(
+                    sub_zone_ids=[master_machine.bk_sub_zone_id], include_or_exclue=True
+                )
         self.ticket.save(update_fields=["details"])
 
     def post_callback(self):
