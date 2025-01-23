@@ -11,7 +11,7 @@ specific language governing permissions and limitations under the License.
 from collections import defaultdict
 from typing import Any, Callable, Dict, List
 
-from django.db.models import F, Q, QuerySet, Value
+from django.db.models import F, Prefetch, Q, QuerySet, Value
 from django.forms import model_to_dict
 from django.utils.translation import ugettext_lazy as _
 
@@ -271,7 +271,12 @@ class ListRetrieveResource(query.ListRetrieveResource):
 
     @classmethod
     def get_topo_graph(cls, bk_biz_id: int, cluster_id: int) -> dict:
-        cluster = Cluster.objects.get(bk_biz_id=bk_biz_id, id=cluster_id)
+        cluster = Cluster.objects.prefetch_related(
+            Prefetch(
+                "storageinstance_set", queryset=StorageInstance.objects.select_related("machine"), to_attr="storages"
+            )
+        ).get(bk_biz_id=bk_biz_id, id=cluster_id)
+
         graph = scan_cluster(cluster).to_dict()
         return graph
 
