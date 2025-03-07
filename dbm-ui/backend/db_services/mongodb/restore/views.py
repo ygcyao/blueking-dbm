@@ -21,11 +21,13 @@ from backend.bk_web.swagger import common_swagger_auto_schema
 from backend.db_services.mongodb.restore.constants import BACKUP_LOG_RANGE_DAYS
 from backend.db_services.mongodb.restore.handlers import MongoDBRestoreHandler
 from backend.db_services.mongodb.restore.serializers import (
+    PitrBackupLogSerializer,
     QueryBackupLogResponseSerializer,
     QueryBackupLogSerializer,
     QueryRestoreRecordResponseSerializer,
     QueryRestoreRecordSerializer,
 )
+from backend.flow.engine.bamboo.scene.mongodb.sub_task.fetch_backup_record_subtask import FetchBackupRecordSubTask
 from backend.iam_app.handlers.drf_perm.base import DBManagePermission
 
 SWAGGER_TAG = "db_services/mongodb/restore"
@@ -61,6 +63,20 @@ class MongoDBRestoreViewSet(viewsets.SystemViewSet):
         start_time = end_time - timedelta(days=BACKUP_LOG_RANGE_DAYS)
         backup_logs = MongoDBRestoreHandler.query_clusters_backup_log(**data, start_time=start_time, end_time=end_time)
         return Response(backup_logs)
+
+    @common_swagger_auto_schema(
+        operation_summary=_("获取mongo pitr的备份记录"),
+        query_serializer=PitrBackupLogSerializer(),
+        responses={status.HTTP_200_OK: QueryBackupLogResponseSerializer()},
+        tags=[SWAGGER_TAG],
+    )
+    @action(methods=["POST"], detail=False, serializer_class=PitrBackupLogSerializer)
+    def pitr_clusters_backup_log(self, requests, *args, **kwargs):
+        data = self.params_validate(self.get_serializer_class())
+        rec = FetchBackupRecordSubTask.fetch_backup_record(
+            cluster_id=data["cluster_id"], shard_name=None, dst_time_str=data["rollback_time"]
+        )
+        return Response(rec)
 
     @common_swagger_auto_schema(
         operation_summary=_("查询定点构造记录"),

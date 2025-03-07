@@ -15,6 +15,7 @@ from rest_framework import serializers
 
 from backend.db_meta.enums import ClusterType
 from backend.db_services.mongodb.restore import mock_data
+from backend.ticket.builders.common.field import DBTimezoneField
 
 
 class QueryBackupLogSerializer(serializers.Serializer):
@@ -25,6 +26,11 @@ class QueryBackupLogSerializer(serializers.Serializer):
         if attrs["cluster_type"] == ClusterType.MongoShardedCluster and len(attrs["cluster_ids"]) > 1:
             raise serializers.ValidationError(_("分片集群只支持查询单个"))
         return attrs
+
+
+class PitrBackupLogSerializer(serializers.Serializer):
+    cluster_id = serializers.IntegerField(help_text=_("集群ID"))
+    rollback_time = DBTimezoneField(help_text=_("回档时间"))
 
 
 class QueryBackupLogResponseSerializer(serializers.Serializer):
