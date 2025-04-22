@@ -41,6 +41,7 @@ class TendbSpiderReduceNodesDetailSerializer(TendbBaseOperateDetailSerializer):
 
     def validate(self, attrs):
         super().validate(attrs)
+        self.validate_spider_master_slave(attrs)
         self.validate_min_spider_count(attrs)
         return attrs
 

@@ -24,6 +24,7 @@ from backend.ticket.builders.common.base import (
     MySQLTicketFlowBuilderPatchMixin,
     fetch_cluster_ids,
 )
+from backend.ticket.builders.common.constants import ShrinkType
 from backend.ticket.builders.mysql.base import MySQLBaseOperateDetailSerializer, MySQLClustersTakeDownDetailsSerializer
 from backend.ticket.constants import TicketType
 
@@ -163,6 +164,25 @@ class TendbBaseOperateDetailSerializer(MySQLBaseOperateDetailSerializer):
 
     def validate_cluster_can_access(self, attrs):
         return super().validate_cluster_can_access(attrs=attrs)
+
+    def validate_spider_master_slave(self, attrs):
+        """校验同一个集群不能同时对spider_master和spider_slave进行缩容"""
+        if attrs["shrink_type"] == ShrinkType.HOST.value:
+            cluster_roles = {}
+            for info in attrs["infos"]:
+                cluster_id = info["cluster_id"]
+                role = info["reduce_spider_role"]
+
+                # 初始化角色集合
+                roles = cluster_roles.setdefault(cluster_id, set())
+                roles.add(role)
+
+                # 检查冲突
+                if (
+                    TenDBClusterSpiderRole.SPIDER_MASTER.value in roles
+                    and TenDBClusterSpiderRole.SPIDER_SLAVE.value in roles
+                ):
+                    raise serializers.ValidationError(f"集群：{cluster_id}:不允许同时缩容Spider Master和 Slave")
 
 
 class TendbClustersTakeDownDetailsSerializer(MySQLClustersTakeDownDetailsSerializer):
