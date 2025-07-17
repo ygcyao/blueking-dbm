@@ -170,6 +170,7 @@ class DBBaseViewSet(viewsets.SystemViewSet):
             resource_cls__cluster_ids_map[resource_class].append(cluster["id"])
         # 按照不同的集群类型，调用不同的query resource去查询集群数据
         clusters_data: List[Dict] = []
+        count = 0
         for resource_class, cluster_ids in resource_cls__cluster_ids_map.items():
             if not list(cluster_ids):
                 continue
@@ -178,8 +179,8 @@ class DBBaseViewSet(viewsets.SystemViewSet):
                 bk_biz_id=data["bk_biz_id"], query_params=query_params, limit=limit, offset=offset
             )
             clusters_data.extend(cluster_resource_data.data)
-
-        return Response(clusters_data)
+            count += cluster_resource_data.count
+        return Response({"results": clusters_data, "count": count})
 
     @common_swagger_auto_schema(
         operation_summary=_("根据过滤条件查询业务下域名信息"),

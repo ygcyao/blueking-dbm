@@ -9035,7 +9035,7 @@
             "operation": "upsert_action",
             "data": {
                 "id": "redis_cluster_reinstall_dbmon",
-                "name": "REDIS 集群标准化",
+                "name": "Redis 集群标准化",
                 "name_en": "REDIS_CLUSTER_REINSTALL_DBMON",
                 "type": "execute",
                 "related_resource_types": [
@@ -9056,7 +9056,7 @@
                 "hidden": false,
                 "group": "Redis",
                 "subgroup": "工具箱",
-                "description": "REDIS 集群标准化",
+                "description": "Redis 集群标准化",
                 "description_en": "REDIS_CLUSTER_REINSTALL_DBMON"
             }
         },
