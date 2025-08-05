@@ -34,6 +34,7 @@ logger = logging.getLogger("root")
 class DorisApplyDetailSerializer(BigDataApplyDetailsSerializer):
     http_port = serializers.IntegerField(help_text=_("http端口"), default=DORIS_DEFAULT_HTTP_PORT)
     query_port = serializers.IntegerField(help_text=_("输入端口"), default=DORIS_DEFAULT_QUERY_PORT)
+    enable_cold_storage = serializers.BooleanField(help_text=_("是否建立低频存储"), default=False)
 
     def validate(self, attrs):
         """
@@ -68,14 +69,14 @@ class DorisApplyDetailSerializer(BigDataApplyDetailsSerializer):
         if constants.DORIS_OBSERVER_ZERO < observer_node_count < constants.DORIS_OBSERVER_MIN:
             raise serializers.ValidationError(_("observer节点数小于2台! 请保证observer的部署节点数至少为2"))
 
-        # 冷热 数据节点必选1种以上， # 每个角色至少需要2台
+        # 温/热 数据节点必选1种以上， # 每个角色至少需要2台
         hot_node_count = self.get_node_count(attrs, BigDataRole.Doris.HOT.value)
-        cold_node_count = self.get_node_count(attrs, BigDataRole.Doris.COLD.value)
+        warm_node_count = self.get_node_count(attrs, BigDataRole.Doris.WARM.value)
 
-        total_nodes = hot_node_count + cold_node_count
+        total_nodes = hot_node_count + warm_node_count
         if not total_nodes:
-            raise serializers.ValidationError(_("请保证冷/热节点必选1种以上"))
-        if not (hot_node_count >= constants.DORIS_HOT_COLD_LIMIT or cold_node_count >= constants.DORIS_HOT_COLD_LIMIT):
+            raise serializers.ValidationError(_("请保证温/热节点必选1种以上"))
+        if not (hot_node_count >= constants.DORIS_HOT_WARM_LIMIT or warm_node_count >= constants.DORIS_HOT_WARM_LIMIT):
             raise serializers.ValidationError(_("请保证部署节点的角色为2以上"))
 
         return attrs
@@ -99,8 +100,8 @@ class DorisApplyFlowParamBuilder(builders.FlowParamBuilder):
 class DorisApplyResourceParamBuilder(builders.ResourceApplyParamBuilder):
     @classmethod
     def fill_instance_num(cls, next_flow_data, ticket_data, nodes_key):
-        """对doris的hot和cold角色填充实例数"""
-        for role in ["hot", "cold"]:
+        """对doris的hot和warm角色填充实例数"""
+        for role in ["hot", "warm"]:
             if role not in next_flow_data[nodes_key]:
                 continue
 

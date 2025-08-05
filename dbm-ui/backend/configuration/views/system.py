@@ -104,6 +104,18 @@ class SystemSettingsViewSet(viewsets.SystemViewSet):
         SystemSettings.insert_setting_value(SystemSettingsEnum.BKM_DUTY_NOTICE.value, self.validated_data, "dict")
         return Response(SystemSettings.get_setting_value(SystemSettingsEnum.BKM_DUTY_NOTICE.value, default={}))
 
+    @common_swagger_auto_schema(
+        operation_summary=_("查询doris 低频存储开关"),
+        tags=tags,
+    )
+    @action(methods=["GET"], detail=False)
+    def doris_cos_switch(self, request, *args, **kwargs):
+        return Response(
+            SystemSettings.get_setting_value(
+                SystemSettingsEnum.DORIS_COS_SWITCH.value, default={"DORIS_COS_SWITCH": False}
+            )
+        )
+
     @common_swagger_auto_schema(operation_summary=_("查询环境变量"), tags=tags)
     @action(detail=False, methods=["get"])
     def environ(self, request):

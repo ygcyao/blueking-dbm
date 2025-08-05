@@ -28,7 +28,7 @@ class DorisListRetrieveResource(BigDataBaseListRetrieveResource):
         InstanceRole.DORIS_FOLLOWER.value,
         InstanceRole.DORIS_OBSERVER.value,
         InstanceRole.DORIS_BACKEND_HOT.value,
-        InstanceRole.DORIS_BACKEND_COLD.value,
+        InstanceRole.DORIS_BACKEND_WARM.value,
     ]
     fields = [
         *BigDataBaseListRetrieveResource.fields,
