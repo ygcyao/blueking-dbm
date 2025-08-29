@@ -237,6 +237,12 @@ class ListRetrieveResource(query.ListRetrieveResource):
 
         kwargs.update(pair_instance_map=pair_instance_map)
         kwargs.update(handler_db_type=DBType.MySQL.value)
+        # 查询slave/repeater角色关联的主库
+        role = query_params.get("role", "").split(",")
+        pair_instance_map = {}
+        if InstanceRole.REMOTE_SLAVE.value in role or InstanceRole.REMOTE_REPEATER.value in role:
+            pair_instance_map = MysqlCommon().slave_associate_mater_role(instances)
+        kwargs.update(pair_instance_map=pair_instance_map)
         return super()._filter_instance_hook(bk_biz_id, query_params, instances, **kwargs)
 
     @classmethod
