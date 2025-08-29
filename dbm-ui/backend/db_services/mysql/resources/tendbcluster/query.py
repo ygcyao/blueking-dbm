@@ -26,6 +26,7 @@ from backend.db_meta.models.instance import ProxyInstance, StorageInstance
 from backend.db_services.dbbase.resources import query
 from backend.db_services.dbbase.resources.query import ResourceList
 from backend.db_services.dbbase.resources.register import register_resource_decorator
+from backend.db_services.mysql.resources.query import MysqlCommon
 from backend.ticket.constants import TicketType
 
 
@@ -116,7 +117,7 @@ class ListRetrieveResource(query.ListRetrieveResource):
             for role in TenDBClusterSpiderRole.get_values()
         }
 
-        remote_db, remote_dr = TenDBClusterClusterHandler.get_remote_infos(cluster.storages)
+        remote_db, remote_dr, _, _ = TenDBClusterClusterHandler.get_remote_infos(cluster.storages)
         remote_db = [{**inst.simple_desc, "shard_id": inst.shard_id} for inst in remote_db]
         remote_dr = [{**inst.simple_desc, "shard_id": inst.shard_id} for inst in remote_dr]
         # 计算machine分组
@@ -229,6 +230,12 @@ class ListRetrieveResource(query.ListRetrieveResource):
     def _filter_instance_hook(cls, bk_biz_id, query_params, instances, **kwargs):
         # cluster handler
         kwargs.update(handler_db_type=DBType.MySQL.value)
+        # 查询slave/repeater角色关联的主库
+        role = query_params.get("role", "").split(",")
+        pair_instance_map = {}
+        if InstanceRole.REMOTE_SLAVE.value in role or InstanceRole.REMOTE_REPEATER.value in role:
+            pair_instance_map = MysqlCommon().slave_associate_mater_role(instances)
+        kwargs.update(pair_instance_map=pair_instance_map)
         return super()._filter_instance_hook(bk_biz_id, query_params, instances, **kwargs)
 
     @classmethod

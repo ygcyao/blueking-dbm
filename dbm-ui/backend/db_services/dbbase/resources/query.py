@@ -835,6 +835,9 @@ class ListRetrieveResource(BaseListRetrieveResource):
         """
         cloud_info = kwargs.get("cloud_info", {})
         bk_cloud_name = cloud_info.get(str(instance["machine__bk_cloud_id"]), {}).get("bk_cloud_name", "")
+        instance["related_pair_instance"] = (
+            kwargs["pair_instance_map"][instance["machine__ip"]] if kwargs.get("pair_instance_map") else ""
+        )
         return {
             "id": instance["id"],
             "cluster_id": instance["cluster__id"],
@@ -863,6 +866,7 @@ class ListRetrieveResource(BaseListRetrieveResource):
             "create_at": datetime2str(instance["create_at"]),
             "spec_config": instance["machine__spec_config"],
             "bk_biz_id": instance["bk_biz_id"],
+            "related_pair_instance": instance["related_pair_instance"] or "",
         }
 
     @classmethod
