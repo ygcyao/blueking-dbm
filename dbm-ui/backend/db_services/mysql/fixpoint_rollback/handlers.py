@@ -20,8 +20,8 @@ from backend.db_meta.enums import ClusterType, InstanceInnerRole, InstanceStatus
 from backend.db_meta.models.cluster import Cluster
 from backend.db_services.mysql.fixpoint_rollback.constants import BACKUP_LOG_ROLLBACK_TIME_RANGE_DAYS
 from backend.exceptions import AppBaseException
-from backend.flow.engine.bamboo.scene.mysql.common.get_local_backup import get_local_backup_list
-from backend.ticket.builders.common.constants import MySQLBackupSource
+from backend.flow.engine.bamboo.scene.mysql.common.get_local_backup import cmds, get_local_backup_list
+from backend.ticket.builders.common.constants import MySQLBackupSource, MySQLBackupType
 from backend.utils.time import compare_time, datetime2str, find_nearby_time
 
 logger = logging.getLogger("flow")
@@ -79,12 +79,15 @@ class FixPointRollbackHandler:
     ) -> List[Dict]:
         return BKLogHandler.query_logs(collector, start_time, end_time, query_string, size)
 
-    def aggregate_tendb_dbbackup_logs(self, backup_logs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def aggregate_tendb_dbbackup_logs(self, backup_logs: List[Dict[str, Any]], **kwargs) -> List[Dict[str, Any]]:
         """
         聚合tendb的mysql_backup_result日志，按照backup_id聚合mysql备份记录
         :param backup_logs: 备份记录列表
         """
         valid_backup_logs: List[Dict[str, Any]] = []
+        # 是否需要过滤
+        backup_method = kwargs.get("backup_method", "")
+        is_filter = backup_method != "default"
         for log in backup_logs:
             # 过滤掉不合法的日志记录
             if not self._check_backup_log_task_id(log):
@@ -94,6 +97,10 @@ class FixPointRollbackHandler:
                 continue
 
             if self.check_instance_exist and not self._check_instance_in_cluster(log):
+                continue
+
+            # 过滤备份类型
+            if is_filter and log.get("backup_method", "default") != backup_method:
                 continue
 
             file_list_infos = log.pop("file_list")
@@ -114,7 +121,7 @@ class FixPointRollbackHandler:
         return valid_backup_logs
 
     def aggregate_tendbcluster_dbbackup_logs(  # noqa: C901
-        self, backup_logs: List[Dict], shard_list: List = None
+        self, backup_logs: List[Dict], shard_list: List = None, **kwargs
     ) -> List[Dict]:
         """
         聚合tendbcluster的mysql_backup_result日志，按照backup_id聚合tendb备份记录
@@ -190,8 +197,17 @@ class FixPointRollbackHandler:
 
             return _backup_node
 
+        # 是否需要过滤
+        backup_method = kwargs.get("backup_method", "")
+        is_filter = backup_method != "default"
+
         backup_id__backup_logs_map = defaultdict(dict)
         for log in backup_logs:
+
+            # 过滤备份类型
+            if is_filter and log.get("backup_method", "default") != backup_method:
+                continue
+
             backup_id, log["backup_time"] = log["backup_id"], log["consistent_backup_time"]
             if not backup_id__backup_logs_map.get(backup_id):
                 # 初始化整体的角色信息
@@ -303,9 +319,9 @@ class FixPointRollbackHandler:
 
         if self.cluster.cluster_type == ClusterType.TenDBCluster:
             shard_list = kwargs.get("shard_list", [])
-            return self.aggregate_tendbcluster_dbbackup_logs(backup_logs, shard_list)
+            return self.aggregate_tendbcluster_dbbackup_logs(backup_logs, shard_list, **kwargs)
         else:
-            return self.aggregate_tendb_dbbackup_logs(backup_logs)
+            return self.aggregate_tendb_dbbackup_logs(backup_logs, **kwargs)
 
     def query_instance_backup_priv_logs(self, end_time: datetime, **kwargs) -> Dict:
         """
@@ -408,7 +424,7 @@ class FixPointRollbackHandler:
 
         return binlog_record
 
-    def query_backup_log_from_local(self) -> List[Dict[str, Any]]:
+    def query_backup_log_from_local(self, **kwargs) -> List[Dict[str, Any]]:
         """
         查询集群本地的备份记录
         """
@@ -417,19 +433,38 @@ class FixPointRollbackHandler:
             "machine__ip", "port"
         )
         instances = [f"{inst['machine__ip']}:{inst['port']}" for inst in instances]
+        backup_type = kwargs.get("backup_method", "")
+
+        if backup_type == MySQLBackupType.FULL_BY_TICKET.value:
+            backup_type = "is_full_backup = 1 and bill_id != ''"
+        elif backup_type == MySQLBackupType.PARTIAL_BY_TICKET.value:
+            backup_type = "is_full_backup = 0 and bill_id != ''"
+        elif backup_type == MySQLBackupType.FULL_BY_REGULAR.value:
+            backup_type = "is_full_backup = 1 and bill_id = ''"
+        elif backup_type == "default":
+            backup_type = "is_full_backup = 1"
+        else:
+            backup_type = "1=1"
+        query_cmds = cmds.format(cond="true", backup_type=backup_type, limit="")
+
         # 查询集群本地的备份记录
-        local_backup_logs = get_local_backup_list(instances=instances, cluster=self.cluster)
+        local_backup_logs = get_local_backup_list(instances=instances, cluster=self.cluster, query_cmds=query_cmds)
         return local_backup_logs
 
     def query_latest_backup_log(
-        self, rollback_time: datetime, backup_source: str = MySQLBackupSource.REMOTE.value, **kwargs
+        self,
+        rollback_time: datetime,
+        backup_source: str = MySQLBackupSource.REMOTE.value,
+        backup_method: str = "default",
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         根据回档时间查询最新一次的备份记录
         """
+        kwargs.update({"backup_method": backup_method})
         if backup_source == MySQLBackupSource.LOCAL.value:
             # 本地查询
-            backup_logs = self.query_backup_log_from_local()
+            backup_logs = self.query_backup_log_from_local(**kwargs)
         else:
             # 日志平台查询
             end_time = rollback_time
