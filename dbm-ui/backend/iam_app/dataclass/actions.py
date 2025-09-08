@@ -1522,6 +1522,22 @@ class ActionEnum:
         common_labels=[CommonActionLabel.BIZ_MAINTAIN],
     )
 
+    MONGODB_WEBCONSOLE = ActionMeta(
+        id="mongodb_webconsole",
+        name=_("MongoDB Webconsole执行"),
+        name_en="mongodb_webconsole",
+        type="execute",
+        related_actions=[DB_MANAGE.id],
+        related_resource_types=[ResourceEnum.MONGODB],
+        group=_("MongoDB"),
+        subgroup=_("集群管理"),
+        common_labels=[
+            CommonActionLabel.BIZ_READ_ONLY,
+            CommonActionLabel.BIZ_MAINTAIN,
+            CommonActionLabel.EXTERNAL_DEVELOPER
+        ],
+    )
+
     SQLSERVER_VIEW = ActionMeta(
         id="sqlserver_view",
         name=_("SQLServer 集群详情查看"),
@@ -1634,6 +1650,52 @@ class ActionEnum:
         related_actions=[SQLSERVER_VIEW.id],
         related_resource_types=[ResourceEnum.SQLSERVER],
         group=_("SQLServer"),
+        subgroup=_("集群管理"),
+        common_labels=[CommonActionLabel.BIZ_MAINTAIN],
+    )
+
+    ORACLE_VIEW = ActionMeta(
+        id="oracle_view",
+        name=_("Oracle 集群详情查看"),
+        name_en="oracle_view",
+        type="view",
+        related_resource_types=[ResourceEnum.ORACLE],
+        group=_("Oracle"),
+        subgroup=_("集群管理"),
+        common_labels=[CommonActionLabel.BIZ_READ_ONLY, CommonActionLabel.BIZ_MAINTAIN],
+    )
+
+    ORACLE_EDIT = ActionMeta(
+        id="oracle_edit",
+        name=_("Oracle 集群编辑"),
+        name_en="oracle_edit",
+        type="edit",
+        related_resource_types=[ResourceEnum.ORACLE],
+        group=_("Oracle"),
+        subgroup=_("集群管理"),
+        common_labels=[CommonActionLabel.BIZ_MAINTAIN],
+    )
+
+    ORACLE_ENABLE_DISABLE = ActionMeta(
+        id="oracle_enable_disable",
+        name=_("ORACLE 集群禁用和启用"),
+        name_en="ORACLE Enable Disable",
+        type="execute",
+        related_actions=[ORACLE_VIEW.id],
+        related_resource_types=[ResourceEnum.ORACLE],
+        group=_("ORACLE"),
+        subgroup=_("集群管理"),
+        common_labels=[CommonActionLabel.BIZ_MAINTAIN],
+    )
+
+    ORACLE_DESTROY = ActionMeta(
+        id="oracle_destroy",
+        name=_("Oracle 集群删除"),
+        name_en="Oracle Destroy",
+        type="execute",
+        related_actions=[ORACLE_VIEW.id],
+        related_resource_types=[ResourceEnum.ORACLE],
+        group=_("ORACLE"),
         subgroup=_("集群管理"),
         common_labels=[CommonActionLabel.BIZ_MAINTAIN],
     )
