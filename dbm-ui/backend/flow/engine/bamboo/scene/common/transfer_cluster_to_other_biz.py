@@ -12,7 +12,7 @@ specific language governing permissions and limitations under the License.
 import logging
 from typing import Dict, List, Optional, Set
 
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from backend.db_meta.enums import ClusterEntryRole, ClusterEntryType
 from backend.db_meta.models import Cluster, ClusterEntry

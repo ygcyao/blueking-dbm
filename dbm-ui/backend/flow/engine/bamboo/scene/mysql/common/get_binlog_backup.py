@@ -11,7 +11,7 @@ specific language governing permissions and limitations under the License.
 import logging.config
 from datetime import datetime
 
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from backend.db_meta.enums import InstanceInnerRole
 from backend.db_services.mysql.fixpoint_rollback.handlers import FixPointRollbackHandler

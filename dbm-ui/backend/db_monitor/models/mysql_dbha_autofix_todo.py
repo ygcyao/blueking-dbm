@@ -12,14 +12,14 @@ from enum import IntFlag, auto
 from typing import List
 
 from django.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from backend.bk_web.models import AuditedModel
 from backend.db_meta.enums import ClusterType, InstanceRole, MachineType
-from blue_krill.data_types.enum import EnumField, StructuredEnum
+from blue_krill.data_types.enum import EnumField, StrStructuredEnum
 
 
-class MySQLAutofixTicketStatus(str, StructuredEnum):
+class MySQLAutofixTicketStatus(StrStructuredEnum):
     UNSUBMITTED = EnumField("UNSUBMITTED", _("未提交"))
     SKIPPED = EnumField("SKIPPED", _("跳过"))
     PENDING = EnumField("PENDING", _("等待中"))

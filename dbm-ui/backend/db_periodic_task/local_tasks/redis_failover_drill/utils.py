@@ -11,7 +11,7 @@ import logging
 import time
 from typing import List
 
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from backend.db_meta.models import LogicalCity
 from backend.ticket.constants import TicketType
