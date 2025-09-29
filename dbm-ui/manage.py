@@ -5,16 +5,7 @@ import os
 import sys
 
 from django.db.backends.mysql.features import DatabaseFeatures
-from django.utils.functional import cached_property
-
-
-class PatchFeatures:
-    @cached_property
-    def minimum_database_version(self):
-        if self.connection.mysql_is_mariadb:
-            return (10, 4)
-        else:
-            return (5, 7)
+from blueking.mysql_patch import PatchFeatures
 
 
 def main():
